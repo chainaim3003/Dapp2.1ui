@@ -410,6 +410,19 @@ class ZKPretClient {
                 args.push('TESTNET');
                 console.log('Added GLEIF arg 2 (network type): "TESTNET"');
                 break;
+            case 'get-BSDI-compliance-verification':
+                // BSDI verification expects: [filePath] as the only argument
+                const filePath = parameters.filePath;
+                if (filePath) {
+                    args.push(String(filePath));
+                    console.log(`Added BSDI arg 1 (file path): "${filePath}"`);
+                }
+                else {
+                    console.log('⚠️  No file path found for BSDI verification');
+                    args.push('default'); // Use default if no path provided
+                    console.log('Added BSDI arg 1 (default): "default"');
+                }
+                break;
             case 'get-Corporate-Registration-verification-with-sign':
                 // Corporate Registration verification expects: [cin, TESTNET]
                 const cin = parameters.cin;
@@ -445,18 +458,89 @@ class ZKPretClient {
                 args.push(String(composedCin));
                 console.log(`Added Composed Compliance arg 2 (CIN): "${composedCin}"`);
                 break;
-            case 'get-BSDI-compliance-verification':
-                // BSDI verification expects: [filePath] as the only argument
-                const filePath = parameters.filePath;
-                if (filePath) {
-                    args.push(String(filePath));
-                    console.log(`Added BSDI arg 1 (file path): "${filePath}"`);
+            case 'get-BPI-compliance-verification':
+                // Business Process Integrity verification expects: [processType, expectedFilePath, actualFilePath]
+                const processType = parameters.processType;
+                const expectedFileName = parameters.expectedProcessFile;
+                const actualFileName = parameters.actualProcessFile;
+                if (processType) {
+                    args.push(String(processType));
+                    console.log(`Added BPI arg 1 (process type): "${processType}"`);
                 }
                 else {
-                    console.log('⚠️  No file path found for BSDI verification');
-                    args.push('default'); // Use default if no path provided
-                    console.log('Added BSDI arg 1 (default): "default"');
+                    console.log('⚠️  No process type found for BPI verification');
+                    args.push('SCF'); // Default to SCF
+                    console.log('Added BPI arg 1 (default process type): "SCF"');
                 }
+                // Map to actual file paths in the ZK-PRET directory structure
+                let expectedFilePath, actualFilePath;
+                if (processType === 'SCF') {
+                    expectedFilePath = './src/data/scf/process/EXPECTED/bpmn-SCF-Example-Process-Expected.bpmn';
+                    // Intelligent mapping based on uploaded filename
+                    if (actualFileName && actualFileName.includes('Accepted-1')) {
+                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('Accepted-2')) {
+                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Accepted-2.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('Rejected-1')) {
+                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Rejected-1.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('Rejected-2')) {
+                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Rejected-2.bpmn';
+                    }
+                    else {
+                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn'; // Default
+                    }
+                }
+                else if (processType === 'DVP') {
+                    expectedFilePath = './src/data/DVP/process/bpmnCircuitDVP-expected.bpmn';
+                    // Intelligent mapping for DVP files
+                    if (actualFileName && actualFileName.includes('accepted1')) {
+                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-accepted1.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('accepted2')) {
+                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-accepted2.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('rejected1')) {
+                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-rejected1.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('rejected2')) {
+                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-rejected2.bpmn';
+                    }
+                    else {
+                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-accepted1.bpmn'; // Default
+                    }
+                }
+                else if (processType === 'STABLECOIN') {
+                    expectedFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-expected.bpmn';
+                    // Intelligent mapping for STABLECOIN files
+                    if (actualFileName && actualFileName.includes('accepted1')) {
+                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-accepted1.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('accepted2')) {
+                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-accepted2.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('rejected1')) {
+                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-rejected1.bpmn';
+                    }
+                    else if (actualFileName && actualFileName.includes('rejected2')) {
+                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-rejected2.bpmn';
+                    }
+                    else {
+                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-accepted1.bpmn'; // Default
+                    }
+                }
+                else {
+                    // Fallback to SCF
+                    expectedFilePath = './src/data/scf/process/EXPECTED/bpmn-SCF-Example-Process-Expected.bpmn';
+                    actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn';
+                }
+                args.push(expectedFilePath);
+                console.log(`Added BPI arg 2 (expected file path): "${expectedFilePath}"`);
+                args.push(actualFilePath);
+                console.log(`Added BPI arg 3 (actual file path): "${actualFilePath}"`);
+                console.log(`Final BPI command: node script.js "${processType}" "${expectedFilePath}" "${actualFilePath}"`);
                 break;
             case 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk':
             case 'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign':

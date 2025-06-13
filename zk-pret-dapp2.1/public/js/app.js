@@ -618,22 +618,78 @@ class ZKPretAsyncApp {
     }
 
     async executeBusinessProcessIntegrity() {
+        // Prevent double execution
+        const executeBtn = document.getElementById('process-integrity-execute-btn');
+        if (executeBtn && executeBtn.disabled) {
+            console.log('⚠️ Already executing, ignoring duplicate request');
+            return;
+        }
+        
+        if (this.syncExecuting && !this.isAsyncMode) {
+            console.log('⚠️ Already executing in sync mode, ignoring duplicate request');
+            return;
+        }
+
         if (!this.uploadedFiles.actualProcessFile || !this.uploadedFiles.expectedProcessFile) {
-            this.showNotification('Missing Files', 'Please upload both actual and expected process files', 'error');
+            this.showNotification('Missing Files', 'Please upload both expected and actual process files (BPMN 2.0 format)', 'error');
             return;
         }
 
         const processType = document.getElementById('process-type-select')?.value;
-        const parameters = {
-            actualProcessFile: this.uploadedFiles.actualProcessFile.name,
-            expectedProcessFile: this.uploadedFiles.expectedProcessFile.name,
-            actualFileContent: await this.readFileContent(this.uploadedFiles.actualProcessFile),
-            expectedFileContent: await this.readFileContent(this.uploadedFiles.expectedProcessFile),
-            businessProcessType: processType,
-            typeOfNet: 'TESTNET'
-        };
+        
+        // Validate process type parameter
+        if (!processType || !['SCF', 'DVP', 'STABLECOIN'].includes(processType)) {
+            this.showNotification('Invalid Process Type', 'Please select a valid business process type', 'error');
+            return;
+        }
 
-        await this.executeTool('get-BPI-compliance-verification', parameters);
+        // Disable button to prevent double execution
+        if (executeBtn) {
+            executeBtn.disabled = true;
+            executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+        }
+
+        try {
+            // Map the dropdown values to the command parameters
+            let processParam;
+            switch(processType) {
+                case 'SCF':
+                    processParam = 'SCF';
+                    break;
+                case 'DVP':
+                    processParam = 'DVP';
+                    break;
+                case 'STABLECOIN':
+                    processParam = 'STABLECOIN';
+                    break;
+                default:
+                    this.showNotification('Invalid Process Type', 'Unsupported process type selected', 'error');
+                    return;
+            }
+
+            // Prepare the parameters for the business process integrity verification
+            const parameters = {
+                command: 'node ./build/tests/with-sign/BusinessProcessIntegrityVerificationFileTestWithSign.js',
+                processType: processParam,
+                expectedProcessFile: this.uploadedFiles.expectedProcessFile.name,
+                actualProcessFile: this.uploadedFiles.actualProcessFile.name,
+                expectedFileContent: await this.readFileContent(this.uploadedFiles.expectedProcessFile),
+                actualFileContent: await this.readFileContent(this.uploadedFiles.actualProcessFile),
+                typeOfNet: 'TESTNET'
+            };
+
+            // Execute the business process integrity verification
+            await this.executeTool('get-BPI-compliance-verification', parameters);
+        } catch (error) {
+            console.error('Business Process Integrity execution error:', error);
+            this.showNotification('Execution Error', 'Failed to execute Business Process Integrity verification', 'error');
+        } finally {
+            // Re-enable button
+            if (executeBtn) {
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Generate Business Process Integrity ZK Proof';
+            }
+        }
     }
 
     async executeRiskLiquidity() {

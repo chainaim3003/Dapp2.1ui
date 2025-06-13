@@ -785,6 +785,28 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <strong>Expected Process File</strong>
+                                </label>
+                                <div class="file-drop-zone" id="expected-process-drop-zone">
+                                    <input type="file" id="expected-process-input" class="hidden" accept=".bpmn,.xml,.json">
+                                    <div class="file-placeholder">
+                                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                        <p class="text-gray-600">Drag & drop expected process file here</p>
+                                        <p class="text-sm text-gray-500">or click to browse (BPMN 2.0 format)</p>
+                                    </div>
+                                    <div class="file-info">
+                                        <i class="fas fa-file-code text-green-600 text-2xl mb-2"></i>
+                                        <p class="font-medium text-gray-800" id="expected-process-file-name"></p>
+                                        <p class="text-sm text-gray-500" id="expected-process-file-size"></p>
+                                        <button type="button" class="file-remove-btn hover:underline mt-1" onclick="clearExpectedProcessFile()">
+                                            <i class="fas fa-times mr-1"></i>Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
                                     <strong>Actual Process File</strong>
                                 </label>
                                 <div class="file-drop-zone" id="actual-process-drop-zone">
@@ -792,7 +814,7 @@
                                     <div class="file-placeholder">
                                         <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
                                         <p class="text-gray-600">Drag & drop actual process file here</p>
-                                        <p class="text-sm text-gray-500">or click to browse</p>
+                                        <p class="text-sm text-gray-500">or click to browse (BPMN 2.0 format)</p>
                                     </div>
                                     <div class="file-info">
                                         <i class="fas fa-file-code text-green-600 text-2xl mb-2"></i>
@@ -804,25 +826,22 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <strong>Expected Process File</strong>
-                                </label>
-                                <div class="file-drop-zone" id="expected-process-drop-zone">
-                                    <input type="file" id="expected-process-input" class="hidden" accept=".bpmn,.xml,.json">
-                                    <div class="file-placeholder">
-                                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-                                        <p class="text-gray-600">Drag & drop expected process file here</p>
-                                        <p class="text-sm text-gray-500">or click to browse</p>
-                                    </div>
-                                    <div class="file-info">
-                                        <i class="fas fa-file-code text-green-600 text-2xl mb-2"></i>
-                                        <p class="font-medium text-gray-800" id="expected-process-file-name"></p>
-                                        <p class="text-sm text-gray-500" id="expected-process-file-size"></p>
-                                        <button type="button" class="file-remove-btn hover:underline mt-1" onclick="clearExpectedProcessFile()">
-                                            <i class="fas fa-times mr-1"></i>Remove
-                                        </button>
+                            
+                            <!-- BPMN 2.0 Reference Links -->
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="flex items-start">
+                                    <i class="fas fa-info-circle text-blue-600 mt-0.5 mr-3"></i>
+                                    <div class="text-sm text-blue-700">
+                                        <p class="font-medium mb-2">File Format Requirements</p>
+                                        <p class="mb-3">Please upload files in BPMN 2.0 format for proper process integrity verification.</p>
+                                        <div class="space-x-4">
+                                            <a href="https://www.omg.org/spec/BPMN/2.0/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
+                                                <i class="fas fa-external-link-alt mr-1"></i>BPMN 2.0 Specification
+                                            </a>
+                                            <a href="https://bpmn.io/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
+                                                <i class="fas fa-external-link-alt mr-1"></i>bpmn.io
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
