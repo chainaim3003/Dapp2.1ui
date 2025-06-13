@@ -3,6 +3,8 @@ dotenv.config(); // This line should be very early
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
+import fs from 'fs';
+import path from 'path';
 import { logger } from './utils/logger.js';
 import { zkPretClient } from './services/zkPretClient.js';
 import { composedProofService } from './services/ComposedProofService.js';
@@ -409,6 +411,50 @@ app.post('/api/v1/composed-proofs/templates', async (req, res) => {
     catch (error) {
         logger.error('Failed to add template', { error: error instanceof Error ? error.message : String(error) });
         res.status(500).json({ error: 'Failed to add template' });
+    }
+});
+// Bill of Lading Files API - Get available bill of lading files for data integrity verification
+app.get('/api/v1/bill-of-lading-files', async (_req, res) => {
+    try {
+        const basePath = process.env.ZK_PRET_STDIO_PATH;
+        const relativePath = process.env.ZK_PRET_DATA_BILLOFLADING;
+        if (!relativePath || !basePath) {
+            return res.status(400).json({
+                error: 'Bill of Lading path not configured',
+                relativePath: !!relativePath,
+                basePath: !!basePath
+            });
+        }
+        const fullPath = path.join(basePath, relativePath);
+        logger.info('Reading bill of lading files', {
+            relativePath,
+            fullPath
+        });
+        // Check if directory exists
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({
+                error: 'Bill of Lading directory not found',
+                path: fullPath
+            });
+        }
+        const files = fs.readdirSync(fullPath)
+            .filter(f => f.endsWith('.json'))
+            .sort(); // Sort alphabetically
+        res.json({
+            files,
+            path: relativePath,
+            dataType: 'DCSA-BillofLading-V3',
+            count: files.length
+        });
+    }
+    catch (error) {
+        logger.error('Failed to read bill of lading files', {
+            error: error instanceof Error ? error.message : String(error)
+        });
+        res.status(500).json({
+            error: 'Failed to read bill of lading directory',
+            details: error instanceof Error ? error.message : String(error)
+        });
     }
 });
 const startServer = async () => {

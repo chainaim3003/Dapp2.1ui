@@ -715,52 +715,27 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <strong>Data Input Method</strong>
+                                    <strong>DataType</strong>
                                 </label>
-                                <div class="flex space-x-4 mb-4">
-                                    <label class="flex items-center">
-                                        <input type="radio" name="data-input-method" value="filepath" class="mr-2" checked>
-                                        <span class="text-sm font-medium">File Path</span>
-                                    </label>
-                                    <label class="flex items-center">
-                                        <input type="radio" name="data-input-method" value="upload" class="mr-2">
-                                        <span class="text-sm font-medium">Upload File</span>
-                                    </label>
-                                </div>
+                                <select id="data-type-select" class="form-input">
+                                    <option value="DCSA-BillofLading-V3">DCSA-BillofLading-V3</option>
+                                </select>
+                                <div class="text-xs text-gray-500 mt-1">Digital Container Shipping Association Bill of Lading Version 3</div>
                             </div>
 
-                            <div id="data-filepath-section">
+                            <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <strong>Data File Path</strong>
+                                    <strong>Data Upload</strong>
                                 </label>
-                                <input type="text" id="data-file-path-input" class="form-input" placeholder="Enter file path or leave blank for default">
-                            </div>
-
-                            <div id="data-upload-section" class="hidden">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    <strong>Upload Data File</strong>
-                                </label>
-                                <div class="file-drop-zone" id="data-file-drop-zone">
-                                    <input type="file" id="data-file-input" class="hidden" accept=".json,.txt">
-                                    <div class="file-placeholder">
-                                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-                                        <p class="text-gray-600">Drag & drop your data file here</p>
-                                        <p class="text-sm text-gray-500">or click to browse</p>
-                                    </div>
-                                    <div class="file-info">
-                                        <i class="fas fa-file-alt text-green-600 text-2xl mb-2"></i>
-                                        <p class="font-medium text-gray-800" id="data-file-name"></p>
-                                        <p class="text-sm text-gray-500" id="data-file-size"></p>
-                                        <button type="button" class="file-remove-btn hover:underline mt-1" onclick="clearDataFile()">
-                                            <i class="fas fa-times mr-1"></i>Remove
-                                        </button>
-                                    </div>
-                                </div>
+                                <select id="data-file-select" class="form-input">
+                                    <option value="">Select bill of lading file...</option>
+                                </select>
+                                <div class="text-xs text-gray-500 mt-1">JSON format files from the Bill of Lading data directory</div>
                             </div>
                             
                             <button id="data-integrity-execute-btn" class="btn btn-primary w-full">
                                 <i class="fas fa-play mr-2"></i>
-                                Generate Business Data Integrity ZK Proof
+                                Generate Business Integrity Data Proof
                             </button>
                         </div>
                     </div>

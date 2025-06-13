@@ -498,6 +498,58 @@ app.get('/api/v1/process-files/:processType/:fileType', async (req, res) => {
   }
 });
 
+// Bill of Lading Files API - Get available bill of lading files for data integrity verification
+app.get('/api/v1/bill-of-lading-files', async (_req, res) => {
+  try {
+    const basePath = process.env.ZK_PRET_STDIO_PATH;
+    const relativePath = process.env.ZK_PRET_DATA_BILLOFLADING;
+    
+    if (!relativePath || !basePath) {
+      return res.status(400).json({ 
+        error: 'Bill of Lading path not configured', 
+        relativePath: !!relativePath,
+        basePath: !!basePath 
+      });
+    }
+    
+    const fullPath = path.join(basePath, relativePath);
+    
+    logger.info('Reading bill of lading files', {
+      relativePath,
+      fullPath
+    });
+    
+    // Check if directory exists
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ 
+        error: 'Bill of Lading directory not found', 
+        path: fullPath 
+      });
+    }
+    
+    const files = fs.readdirSync(fullPath)
+      .filter(f => f.endsWith('.json'))
+      .sort(); // Sort alphabetically
+    
+    res.json({ 
+      files, 
+      path: relativePath,
+      dataType: 'DCSA-BillofLading-V3',
+      count: files.length
+    });
+    
+  } catch (error) {
+    logger.error('Failed to read bill of lading files', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to read bill of lading directory',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 // Enhanced status endpoint with job information
 app.get('/api/v1/status', (_req, res) => {
   res.json({

@@ -21,6 +21,9 @@ class ZKPretAsyncApp {
             expectedProcessFile: null,
             deepCompositionFile: null
         };
+        
+        // Store handlers to prevent duplicate event listeners
+        this.executionHandlers = new Map();
 
         // Initialize SCF enhancement if available
         if (window.scfEnhancement) {
@@ -60,14 +63,54 @@ class ZKPretAsyncApp {
             if (processTypeSelect && processTypeSelect.value === 'SCF') {
                 this.populateProcessFileDropdowns('SCF');
             }
+            
+            // Initialize bill of lading files for data integrity
+            this.populateBillOfLadingFiles();
         }, 500);
         
         console.log('✅ ZK-PRET Application initialized successfully');
+        
+        // DIAGNOSTIC: Track how many times init() is called
+        window.zkAppInitCount = (window.zkAppInitCount || 0) + 1;
+        console.log(`📊 ZK-PRET App init count: ${window.zkAppInitCount}`);
+        if (window.zkAppInitCount > 1) {
+            console.warn(`⚠️ Multiple app initializations detected! Count: ${window.zkAppInitCount}`);
+            console.trace('Init call trace:');
+        }
     }
 
     // =============================
     // FILE PICKER FUNCTIONALITY
     // =============================
+    
+    async populateBillOfLadingFiles() {
+        try {
+            console.log('🔄 Loading bill of lading files...');
+            
+            const response = await fetch('/api/v1/bill-of-lading-files');
+            if (response.ok) {
+                const data = await response.json();
+                
+                const fileSelect = document.getElementById('data-file-select');
+                if (fileSelect) {
+                    fileSelect.innerHTML = '<option value="">Select bill of lading file...</option>';
+                    data.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.textContent = file;
+                        fileSelect.appendChild(option);
+                    });
+                    console.log(`✅ Loaded ${data.files.length} bill of lading files`);
+                }
+            } else {
+                console.log('⚠️ Failed to load bill of lading files:', await response.text());
+                this.showNotification('File Loading Error', 'Failed to load bill of lading files', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to load bill of lading files:', error);
+            this.showNotification('File Loading Error', 'Failed to load bill of lading files', 'error');
+        }
+    }
     
     async populateProcessFileDropdowns(processType) {
         if (!processType) {
@@ -209,6 +252,7 @@ class ZKPretAsyncApp {
         
         // FIX: Re-initialize form elements after DOM changes
         setTimeout(() => {
+            console.log(`🔄 Re-initializing form elements for special mode: ${mode}`);
             this.setupFileDropZones();
             this.setupExecutionButtons();
             
@@ -218,6 +262,11 @@ class ZKPretAsyncApp {
                 if (processTypeSelect && processTypeSelect.value) {
                     this.populateProcessFileDropdowns(processTypeSelect.value);
                 }
+            }
+            
+            // Initialize bill of lading files for data integrity if it's the target
+            if (mode === 'data-integrity') {
+                this.populateBillOfLadingFiles();
             }
             
             // Log debug info to verify form elements are present
@@ -237,6 +286,7 @@ class ZKPretAsyncApp {
     // =============================
     
     setupEventListeners() {
+        console.log('🔍 setupEventListeners() called');
         this.setupTabNavigation();
         this.setupModeToggle();
         this.setupDataInputMethods();
@@ -269,14 +319,13 @@ class ZKPretAsyncApp {
     }
 
     setupDataInputMethods() {
-        document.querySelectorAll('input[name="data-input-method"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                this.toggleDataInputMethod(e.target.value);
-            });
-        });
+        // No longer needed since we use dropdown selection
+        // Keeping this method for backward compatibility
     }
 
     setupExecutionButtons() {
+        console.log('🔧 setupExecutionButtons() called - checking for duplicate registrations');
+        
         const executionButtons = [
             { id: 'gleif-execute-btn', handler: () => this.executeGLEIF() },
             { id: 'corporate-execute-btn', handler: () => this.executeCorporateRegistration() },
@@ -293,7 +342,37 @@ class ZKPretAsyncApp {
         executionButtons.forEach(({ id, handler }) => {
             const btn = document.getElementById(id);
             if (btn) {
+                // DIAGNOSTIC: Check if button already has event listeners
+                const existingListeners = btn.getAttribute('data-listeners-count') || '0';
+                const newCount = parseInt(existingListeners) + 1;
+                
+                console.log(`📊 Button ${id}:`, {
+                    existingListeners: existingListeners,
+                    newCount: newCount,
+                    element: btn
+                });
+                
+                if (newCount > 1) {
+                    console.warn(`⚠️ DUPLICATE LISTENER DETECTED for ${id}! Count: ${newCount}`);
+                }
+                
+                // Track listener count
+                btn.setAttribute('data-listeners-count', newCount.toString());
+                
+                // Remove any existing event listeners to prevent duplicates
+                const existingHandler = this.executionHandlers.get(id);
+                if (existingHandler) {
+                    btn.removeEventListener('click', existingHandler);
+                    console.log(`🧹 Removed existing handler for ${id}`);
+                }
+                
+                // Store and add new handler
+                this.executionHandlers.set(id, handler);
                 btn.addEventListener('click', handler);
+                
+                console.log(`✅ Added event listener for ${id}`);
+            } else {
+                console.warn(`❌ Button not found: ${id}`);
             }
         });
         
@@ -472,6 +551,13 @@ class ZKPretAsyncApp {
     }
     
     initializeTabComponent(tabName) {
+        // Initialize bill of lading files when switching to data integrity tab
+        if (tabName === 'data-integrity') {
+            setTimeout(() => {
+                this.populateBillOfLadingFiles();
+            }, 100);
+        }
+        
         // Initialize GLEIF component when switching to GLEIF tab
         if (tabName === 'gleif' && !this.gleifComponent) {
             if (window.GLEIFComponent) {
@@ -580,21 +666,8 @@ class ZKPretAsyncApp {
     }
 
     toggleDataInputMethod(method) {
-        const filePathSection = document.getElementById('data-filepath-section');
-        const uploadSection = document.getElementById('data-upload-section');
-        
-        if (!filePathSection || !uploadSection) return;
-
-        if (method === 'filepath') {
-            filePathSection.classList.remove('hidden');
-            uploadSection.classList.add('hidden');
-            this.clearDataFile();
-        } else {
-            filePathSection.classList.add('hidden');
-            uploadSection.classList.remove('hidden');
-            const filePathInput = document.getElementById('data-file-path-input');
-            if (filePathInput) filePathInput.value = '';
-        }
+        // Method kept for backward compatibility but no longer used
+        // since we now use dropdown selection for bill of lading files
     }
 
     toggleGLEIFMode(enhanced) {
@@ -698,21 +771,60 @@ class ZKPretAsyncApp {
     }
 
     async executeBusinessDataIntegrity() {
-        const selectedMethod = document.querySelector('input[name="data-input-method"]:checked')?.value;
-        let filePath;
-
-        if (selectedMethod === 'filepath') {
-            filePath = document.getElementById('data-file-path-input')?.value?.trim() || 'default';
-        } else {
-            if (!this.uploadedFiles.dataFile) {
-                this.showNotification('Missing File', 'Please upload an actual data file', 'error');
-                return;
-            }
-            filePath = this.uploadedFiles.dataFile.name;
+        const timestamp = new Date().toISOString();
+        const callStack = new Error().stack;
+        console.log(`📝 executeBusinessDataIntegrity() called at ${timestamp}`);
+        console.log('🔍 Call stack:', callStack);
+        
+        // Prevent double execution
+        const executeBtn = document.getElementById('data-integrity-execute-btn');
+        if (executeBtn && executeBtn.disabled) {
+            console.log('⚠️ Already executing, ignoring duplicate request');
+            return;
+        }
+        
+        if (this.syncExecuting && !this.isAsyncMode) {
+            console.log('⚠️ Already executing in sync mode, ignoring duplicate request');
+            return;
         }
 
-        const parameters = { filePath: filePath };
-        await this.executeTool('get-BSDI-compliance-verification', parameters);
+        const dataType = document.getElementById('data-type-select')?.value;
+        const selectedFile = document.getElementById('data-file-select')?.value;
+
+        if (!selectedFile) {
+            this.showNotification('Missing File', 'Please select a bill of lading file', 'error');
+            return;
+        }
+
+        // Disable button to prevent double execution
+        if (executeBtn) {
+            executeBtn.disabled = true;
+            executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+        }
+
+        try {
+            // Construct the file path for the command pattern
+            // The pattern should be: node ./build/tests/with-sign/BusinessStandardDataIntegrityVerificationTest.js ./src/data/scf/BILLOFLADING/actualBL1-VALID.json
+            const relativeFilePath = `./src/data/SCF/BILLOFLADING/${selectedFile}`;
+            
+            const parameters = { 
+                command: 'node ./build/tests/with-sign/BusinessStandardDataIntegrityVerificationTest.js',
+                dataType: dataType,
+                filePath: relativeFilePath,
+                typeOfNet: 'TESTNET'
+            };
+            
+            await this.executeTool('get-BSDI-compliance-verification', parameters);
+        } catch (error) {
+            console.error('Business Data Integrity execution error:', error);
+            this.showNotification('Execution Error', 'Failed to execute Business Data Integrity verification', 'error');
+        } finally {
+            // Re-enable button
+            if (executeBtn) {
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Generate Business Integrity Data Proof';
+            }
+        }
     }
 
     async executeBusinessProcessIntegrity() {
@@ -962,7 +1074,11 @@ class ZKPretAsyncApp {
     }
 
     async executeAsync(toolName, parameters) {
+        console.log('🚀 executeAsync() called:', { toolName, parameters });
+        
         const jobId = this.generateJobId();
+        console.log('🏷️ Generated job ID:', jobId);
+        
         const job = {
             id: jobId,
             toolName,
@@ -973,6 +1089,8 @@ class ZKPretAsyncApp {
         };
 
         this.jobs.set(jobId, job);
+        console.log('📁 Job added to queue. Total jobs:', this.jobs.size);
+        
         this.updateJobQueue();
         this.updateJobQueueIndicator();
 
@@ -980,6 +1098,7 @@ class ZKPretAsyncApp {
         this.displayPendingJob(toolName);
 
         try {
+            console.log('📤 Sending job start request to server...');
             const response = await fetch('/api/v1/jobs/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -988,6 +1107,7 @@ class ZKPretAsyncApp {
 
             if (!response.ok) throw new Error('Failed to start job');
 
+            console.log('✅ Job start request successful');
             job.status = 'running';
             this.updateJobQueue();
             this.showNotification(
@@ -996,6 +1116,7 @@ class ZKPretAsyncApp {
                 'info'
             );
         } catch (error) {
+            console.error('❌ Job start failed:', error);
             job.status = 'failed';
             job.error = error.message;
             this.updateJobQueue();
@@ -1659,6 +1780,21 @@ async function loadAvailableTemplates() {
 // =============================
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🎯 DOMContentLoaded event fired');
+    
+    // DIAGNOSTIC: Check if app already exists
+    if (window.app) {
+        console.warn('⚠️ App already exists! Possible duplicate initialization');
+        console.log('Existing app:', window.app);
+    }
+    
+    // DIAGNOSTIC: Track DOMContentLoaded calls
+    window.domReadyCount = (window.domReadyCount || 0) + 1;
+    console.log(`📊 DOMContentLoaded count: ${window.domReadyCount}`);
+    if (window.domReadyCount > 1) {
+        console.warn(`⚠️ Multiple DOMContentLoaded events detected! Count: ${window.domReadyCount}`);
+    }
+    
     // Initialize the main application
     window.app = new ZKPretAsyncApp();
     

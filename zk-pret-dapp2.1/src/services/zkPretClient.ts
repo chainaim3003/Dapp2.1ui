@@ -475,14 +475,22 @@ class ZKPretClient {
         
       case 'get-BSDI-compliance-verification':
         // BSDI verification expects: [filePath] as the only argument
-        const filePath = parameters.filePath;
-        if (filePath) {
-          args.push(String(filePath));
-          console.log(`Added BSDI arg 1 (file path): "${filePath}"`);
+        // Check for new command pattern first (supports DCSA Bill of Lading)
+        if (parameters.command && parameters.filePath) {
+          // New pattern: use the filePath directly for the BusinessStandardDataIntegrityVerificationTest.js script
+          args.push(String(parameters.filePath));
+          console.log(`Added BSDI arg 1 (file path for ${parameters.dataType || 'unknown data type'}): "${parameters.filePath}"`);
         } else {
-          console.log('⚠️  No file path found for BSDI verification');
-          args.push('default'); // Use default if no path provided
-          console.log('Added BSDI arg 1 (default): "default"');
+          // Legacy pattern: use filePath or default
+          const filePath = parameters.filePath;
+          if (filePath) {
+            args.push(String(filePath));
+            console.log(`Added BSDI arg 1 (file path): "${filePath}"`);
+          } else {
+            console.log('⚠️  No file path found for BSDI verification');
+            args.push('default'); // Use default if no path provided
+            console.log('Added BSDI arg 1 (default): "default"');
+          }
         }
         break;
         
