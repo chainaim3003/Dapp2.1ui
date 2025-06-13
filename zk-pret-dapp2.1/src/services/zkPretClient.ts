@@ -130,6 +130,7 @@ class ZKPretClient {
       'get-GLEIF-verification-with-sign',
       'get-Corporate-Registration-verification-with-sign',
       'get-EXIM-verification-with-sign',
+      'get-Composed-Compliance-verification-with-sign',
       'get-BSDI-compliance-verification',
       'get-BPI-compliance-verification',
       'get-RiskLiquidityACTUS-Verifier-Test_adv_zk',
@@ -204,6 +205,7 @@ class ZKPretClient {
       'get-GLEIF-verification-with-sign': 'GLEIFOptimMultiCompanyVerificationTestWithSign.js',  // FIXED: Use the optimized multi-company version
       'get-Corporate-Registration-verification-with-sign': 'CorporateRegistrationOptimMultiCompanyVerificationTestWithSign.js',  // FIXED: Use the optimized multi-company version
       'get-EXIM-verification-with-sign': 'EXIMOptimMultiCompanyVerificationTestWithSign.js',  // FIXED: Use the optimized multi-company version
+      'get-Composed-Compliance-verification-with-sign': 'ComposedRecursiveOptim3LevelVerificationTestWithSign.js',  // NEW: Composed compliance proof
       'get-BSDI-compliance-verification': 'BusinessStandardDataIntegrityVerificationTest.js',
       'get-BPI-compliance-verification': 'BusinessProcessIntegrityVerificationFileTestWithSign.js',
       'get-RiskLiquidityACTUS-Verifier-Test_adv_zk': 'RiskLiquidityACTUSVerifierTest_adv_zk_WithSign.js',
@@ -495,6 +497,18 @@ class ZKPretClient {
         }
         args.push('TESTNET');
         console.log('Added EXIM arg 2 (network type): "TESTNET"');
+        break;
+        
+      case 'get-Composed-Compliance-verification-with-sign':
+        // Composed Compliance verification expects: [companyName, cin]
+        const composedCompanyName = parameters.companyName || 'SREE PALANI ANDAVAR AGROS PRIVATE LIMITED';
+        const composedCin = parameters.cin || 'U01112TZ2022PTC039493';
+        
+        args.push(String(composedCompanyName));
+        console.log(`Added Composed Compliance arg 1 (company name): "${composedCompanyName}"`);
+        
+        args.push(String(composedCin));
+        console.log(`Added Composed Compliance arg 2 (CIN): "${composedCin}"`);
         break;
         
       case 'get-BSDI-compliance-verification':

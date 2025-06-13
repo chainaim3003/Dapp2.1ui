@@ -276,6 +276,155 @@ app.delete('/api/v1/jobs/completed', (_req, res) => {
   });
 });
 
+// Composed Compliance Proof - Execute specific Node.js command
+app.post('/api/v1/composed-compliance/execute', async (req, res) => {
+  try {
+    const { command, arguments: args, requestId } = req.body;
+    
+    logger.info('Received composed compliance execution request', {
+      command,
+      arguments: args,
+      requestId
+    });
+    
+    // Validate the command for security
+    if (!command.includes('ComposedRecursiveOptim3LevelVerificationTestWithSign.js')) {
+      return res.status(400).json({ 
+        error: 'Invalid command - only ComposedRecursiveOptim3LevelVerificationTestWithSign.js is allowed' 
+      });
+    }
+    
+    // Import child_process to execute the Node.js command
+    const { spawn } = await import('child_process');
+    const path = await import('path');
+    
+    // Get the ZK-PRET STDIO path from environment variable
+    const zkPretStdioPath = process.env.ZK_PRET_STDIO_PATH;
+    const zkPretBuildPath = process.env.ZK_PRET_STDIO_BUILD_PATH || './build/tests/with-sign';
+    
+    if (!zkPretStdioPath) {
+      return res.status(500).json({
+        error: 'ZK_PRET_STDIO_PATH not configured',
+        details: 'Please set ZK_PRET_STDIO_PATH in your .env file'
+      });
+    }
+    
+    // Construct the full script path using environment variables
+    const scriptPath = path.join(zkPretStdioPath, zkPretBuildPath, 'ComposedRecursiveOptim3LevelVerificationTestWithSign.js');
+    const fullArgs = [scriptPath, ...args];
+    
+    logger.info('Executing composed compliance command', {
+      zkPretStdioPath,
+      zkPretBuildPath,
+      scriptPath,
+      fullArgs
+    });
+    
+    // Execute the command
+    return new Promise((resolve) => {
+      const process = spawn('node', fullArgs, {
+        cwd: zkPretStdioPath, // Use ZK-PRET directory as working directory
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      
+      let stdout = '';
+      let stderr = '';
+      
+      // Log the actual command being executed for debugging
+      logger.info('Process spawn details', {
+        command: 'node',
+        args: fullArgs,
+        cwd: zkPretStdioPath
+      });
+      
+      process.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      
+      process.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      process.on('close', (code) => {
+        logger.info('Process completed', {
+          requestId,
+          exitCode: code,
+          stdoutLength: stdout.length,
+          stderrLength: stderr.length
+        });
+        
+        if (code === 0) {
+          logger.info('Composed compliance execution completed successfully', { 
+            requestId, 
+            outputLength: stdout.length 
+          });
+          
+          res.json({
+            success: true,
+            result: {
+              success: true,
+              executionId: requestId,
+              output: stdout,
+              exitCode: code,
+              command: `node ${fullArgs.join(' ')}`,
+              scriptPath: scriptPath,
+              timestamp: new Date().toISOString(),
+              mode: 'async-server'
+            }
+          });
+        } else {
+          logger.error('Composed compliance execution failed', { 
+            requestId, 
+            exitCode: code, 
+            stderr,
+            command: `node ${fullArgs.join(' ')}`
+          });
+          
+          res.status(500).json({
+            success: false,
+            error: `Process exited with code ${code}`,
+            details: stderr || 'No error details available',
+            exitCode: code,
+            command: `node ${fullArgs.join(' ')}`,
+            scriptPath: scriptPath,
+            stdout: stdout || 'No output'
+          });
+        }
+      });
+      
+      process.on('error', (error) => {
+        logger.error('Composed compliance process error', { 
+          requestId, 
+          error: error.message,
+          command: `node ${fullArgs.join(' ')}`,
+          scriptPath: scriptPath,
+          errorCode: (error as any).code || 'UNKNOWN'
+        });
+        
+        res.status(500).json({
+          success: false,
+          error: 'Process execution error',
+          details: error.message,
+          command: `node ${fullArgs.join(' ')}`,
+          scriptPath: scriptPath,
+          errorCode: (error as any).code || 'UNKNOWN'
+        });
+      });
+    });
+    
+  } catch (error) {
+    logger.error('Composed compliance execution failed', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'Composed compliance execution failed',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 // Enhanced status endpoint with job information
 app.get('/api/v1/status', (_req, res) => {
   res.json({

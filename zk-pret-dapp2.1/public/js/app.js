@@ -71,6 +71,10 @@ class ZKPretAsyncApp {
             this.showRiskOnly();
         } else if (targetTab === 'registry') {
             this.showRegistryOnly();
+        } else if (targetTab === 'scf') {
+            this.showSCFOnly();
+        } else if (targetTab === 'deep-composition') {
+            this.showDeepCompositionOnly();
         }
     }
 
@@ -90,6 +94,14 @@ class ZKPretAsyncApp {
         this.showSpecialMode('registry', 'Registry | ZK-PRET');
     }
 
+    showSCFOnly() {
+        this.showSpecialMode('scf', 'Supply Chain Finance Verification | ZK-PRET');
+    }
+
+    showDeepCompositionOnly() {
+        this.showSpecialMode('deep-composition', 'DeepComposition Analysis | ZK-PRET');
+    }
+
     showSpecialMode(mode, title) {
         const mainNav = document.querySelector('#tab-navigation nav:first-child');
         const specialNav = document.getElementById(`${mode}-only-nav`);
@@ -101,15 +113,35 @@ class ZKPretAsyncApp {
         document.querySelectorAll('.tab-content').forEach(content => {
             if (content.id !== `${mode}-tab`) {
                 content.style.display = 'none';
+                content.classList.add('hidden');
+                content.classList.remove('active');
+            } else {
+                // Show the target tab properly
+                content.style.display = 'block';
+                content.classList.remove('hidden');
+                content.classList.add('active');
             }
         });
-        
-        const targetTab = document.getElementById(`${mode}-tab`);
-        if (targetTab) targetTab.classList.remove('hidden');
         
         this.currentTab = mode;
         document.title = title;
         sessionStorage.removeItem('zkpret_target_tab');
+        
+        // FIX: Re-initialize form elements after DOM changes
+        setTimeout(() => {
+            this.setupFileDropZones();
+            this.setupExecutionButtons();
+            
+            // Log debug info to verify form elements are present
+            console.log('🔧 Special mode initialized:', {
+                mode,
+                targetTab: document.getElementById(`${mode}-tab`),
+                processTypeSelect: document.getElementById('process-type-select'),
+                actualProcessDropZone: document.getElementById('actual-process-drop-zone'),
+                expectedProcessDropZone: document.getElementById('expected-process-drop-zone'),
+                executeButton: document.getElementById('process-integrity-execute-btn')
+            });
+        }, 100);
     }
 
     // =============================
@@ -321,7 +353,7 @@ class ZKPretAsyncApp {
         }
 
         // Check if in specialized mode
-        const specialNavs = ['process-integrity-only-nav', 'data-integrity-only-nav', 'risk-only-nav', 'registry-only-nav'];
+        const specialNavs = ['process-integrity-only-nav', 'data-integrity-only-nav', 'risk-only-nav', 'registry-only-nav', 'scf-only-nav', 'deep-composition-only-nav'];
         const inSpecialMode = specialNavs.some(navId => {
             const nav = document.getElementById(navId);
             return nav && !nav.classList.contains('hidden');
@@ -401,14 +433,36 @@ class ZKPretAsyncApp {
     updateTabUI(tabName) {
         console.log(`📝 Updating UI for tab: ${tabName}`);
         
-        // Update tab buttons
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        const targetBtn = document.querySelector(`[data-tab="${tabName}"]`);
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-            console.log(`✅ Tab button for ${tabName} activated`);
+        // Update sub-tab buttons (remove active from all sub-tabs first)
+        document.querySelectorAll('.tab-btn.sub-tab').forEach(btn => btn.classList.remove('active'));
+        
+        // Check if this is a compliance-related tab
+        const complianceTabs = ['compliance', 'corporate', 'exim', 'gleif', 'composed-proofs'];
+        const isComplianceTab = complianceTabs.includes(tabName);
+        
+        if (isComplianceTab) {
+            // Keep the super-tab (Compliance Prover) active
+            const superTab = document.querySelector('.tab-btn.super-tab');
+            if (superTab) {
+                superTab.classList.add('active');
+            }
+            
+            // If it's a specific sub-tab, activate it
+            if (tabName !== 'compliance') {
+                const targetBtn = document.querySelector(`[data-tab="${tabName}"].sub-tab`);
+                if (targetBtn) {
+                    targetBtn.classList.add('active');
+                    console.log(`✅ Sub-tab button for ${tabName} activated`);
+                } else {
+                    console.log(`⚠️ Sub-tab button for ${tabName} not found`);
+                }
+            }
         } else {
-            console.log(`⚠️ Tab button for ${tabName} not found`);
+            // For non-compliance tabs, remove active from super-tab
+            const superTab = document.querySelector('.tab-btn.super-tab');
+            if (superTab) {
+                superTab.classList.remove('active');
+            }
         }
 
         // Update tab content
@@ -718,47 +772,25 @@ class ZKPretAsyncApp {
     }
 
     async executeComposedProof() {
-        const selectedTemplate = this.getSelectedTemplate();
-        if (!selectedTemplate) {
-            this.showNotification('No Template Selected', 'Please select a composition template first', 'error');
+        // Get company name and CIN from the form
+        const companyName = document.getElementById('composed-company-name')?.value?.trim() || 'SREE PALANI ANDAVAR AGROS PRIVATE LIMITED';
+        const cin = document.getElementById('composed-cin')?.value?.trim() || 'U01112TZ2022PTC039493';
+        
+        // Validate inputs
+        if (!companyName || !cin) {
+            this.showNotification('Missing Information', 'Please enter both Company Name and CIN', 'error');
             return;
         }
 
-        const globalParameters = this.collectGlobalParameters();
-        const executionOptions = this.collectExecutionOptions();
-        const composedProofRequest = {
-            templateId: selectedTemplate,
-            globalParameters,
-            executionOptions,
-            requestId: `composed-${Date.now()}`
+        // Prepare parameters for the composed proof
+        const parameters = {
+            companyName: companyName,
+            cin: cin,
+            typeOfNet: 'TESTNET'
         };
 
-        this.showComposedProofProgress();
-
-        try {
-            const response = await fetch('/api/v1/composed-proofs/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(composedProofRequest)
-            });
-
-            const result = await response.json();
-            
-            if (result.success) {
-                this.displayComposedProofResult(result.result);
-                this.showNotification(
-                    'Composed Proof Started',
-                    `${selectedTemplate} composition is running`,
-                    'info'
-                );
-            } else {
-                throw new Error(result.error || 'Composed proof execution failed');
-            }
-        } catch (error) {
-            this.hideComposedProofProgress();
-            this.showNotification('Execution Failed', error.message, 'error');
-            this.displayError(error.message);
-        }
+        // Use the standard tool execution method like other compliance proofs
+        await this.executeTool('get-Composed-Compliance-verification-with-sign', parameters);
     }
 
     // =============================
@@ -1100,24 +1132,15 @@ class ZKPretAsyncApp {
 
     collectGlobalParameters() {
         return {
-            companyName: document.getElementById('composed-company-name')?.value?.trim() || '',
-            cin: document.getElementById('composed-cin')?.value?.trim() || '',
-            threshold: parseFloat(document.getElementById('composed-threshold')?.value) || 0.7,
-            actusUrl: document.getElementById('composed-actus-url')?.value?.trim() || '',
-            filePath: document.getElementById('composed-file-path')?.value?.trim() || '',
-            processId: document.getElementById('composed-process-id')?.value?.trim() || ''
+            companyName: document.getElementById('composed-company-name')?.value?.trim() || 'SREE PALANI ANDAVAR AGROS PRIVATE LIMITED',
+            cin: document.getElementById('composed-cin')?.value?.trim() || 'U01112TZ2022PTC039493'
         };
     }
 
     collectExecutionOptions() {
         return {
-            maxParallelism: parseInt(document.getElementById('composed-max-parallelism')?.value) || 2,
-            enableCaching: document.getElementById('composed-enable-caching')?.value === 'true',
-            retryPolicy: {
-                maxRetries: parseInt(document.getElementById('composed-max-retries')?.value) || 2,
-                backoffStrategy: document.getElementById('composed-retry-strategy')?.value || 'FIXED',
-                backoffDelay: parseInt(document.getElementById('composed-retry-delay')?.value) || 1000
-            }
+            command: 'node ./build/tests/with-sign/ComposedRecursiveOptim3LevelVerificationTestWithSign.js',
+            environment: 'LOCAL'
         };
     }
 
@@ -1361,17 +1384,11 @@ function selectComposedProofTemplate(templateId) {
         
         // Show template-specific details
         const templates = {
-            'full-kyc-compliance': {
+            'composed-compliance-template': {
                 description: 'Combines GLEIF entity verification, Corporate Registration validation, and EXIM trade compliance checks',
                 components: ['GLEIF Verification', 'Corporate Registration', 'EXIM Verification (Optional)'],
                 aggregation: 'All Required (2 out of 3, EXIM optional)',
                 estimatedTime: '2-5 minutes'
-            },
-            'financial-risk-assessment': {
-                description: 'Evaluates financial risk using Basel3 compliance and advanced ACTUS risk models',
-                components: ['Basel3 Compliance Check', 'ACTUS Advanced Risk Model'],
-                aggregation: 'Weighted Scoring (Basel3: 60%, ACTUS: 40%)',
-                estimatedTime: '3-7 minutes'
             },
             'business-integrity-check': {
                 description: 'Verifies business data integrity and process compliance',
