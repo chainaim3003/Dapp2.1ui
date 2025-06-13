@@ -54,7 +54,87 @@ class ZKPretAsyncApp {
         await this.checkConnection();
         this.updateModeDisplay();
         
+        // Initialize default file picker for SCF process type
+        setTimeout(() => {
+            const processTypeSelect = document.getElementById('process-type-select');
+            if (processTypeSelect && processTypeSelect.value === 'SCF') {
+                this.populateProcessFileDropdowns('SCF');
+            }
+        }, 500);
+        
         console.log('✅ ZK-PRET Application initialized successfully');
+    }
+
+    // =============================
+    // FILE PICKER FUNCTIONALITY
+    // =============================
+    
+    async populateProcessFileDropdowns(processType) {
+        if (!processType) {
+            // Clear dropdowns if no process type selected
+            const expectedSelect = document.getElementById('expected-process-file-select');
+            const actualSelect = document.getElementById('actual-process-file-select');
+            
+            if (expectedSelect) {
+                expectedSelect.innerHTML = '<option value="">Select expected process file...</option>';
+            }
+            if (actualSelect) {
+                actualSelect.innerHTML = '<option value="">Select actual process file...</option>';
+            }
+            return;
+        }
+        
+        try {
+            console.log(`🔄 Loading process files for ${processType}...`);
+            
+            // Populate Expected files
+            const expectedResponse = await fetch(`/api/v1/process-files/${processType}/expected`);
+            if (expectedResponse.ok) {
+                const expectedData = await expectedResponse.json();
+                
+                const expectedSelect = document.getElementById('expected-process-file-select');
+                if (expectedSelect) {
+                    expectedSelect.innerHTML = '<option value="">Select expected process file...</option>';
+                    expectedData.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.textContent = file;
+                        // Auto-select files that contain 'Expected' or 'expected'
+                        if (file.toLowerCase().includes('expected')) {
+                            option.selected = true;
+                        }
+                        expectedSelect.appendChild(option);
+                    });
+                    console.log(`✅ Loaded ${expectedData.files.length} expected files for ${processType}`);
+                }
+            } else {
+                console.log(`⚠️ Failed to load expected files for ${processType}:`, await expectedResponse.text());
+            }
+            
+            // Populate Actual files
+            const actualResponse = await fetch(`/api/v1/process-files/${processType}/actual`);
+            if (actualResponse.ok) {
+                const actualData = await actualResponse.json();
+                
+                const actualSelect = document.getElementById('actual-process-file-select');
+                if (actualSelect) {
+                    actualSelect.innerHTML = '<option value="">Select actual process file...</option>';
+                    actualData.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.textContent = file;
+                        actualSelect.appendChild(option);
+                    });
+                    console.log(`✅ Loaded ${actualData.files.length} actual files for ${processType}`);
+                }
+            } else {
+                console.log(`⚠️ Failed to load actual files for ${processType}:`, await actualResponse.text());
+            }
+            
+        } catch (error) {
+            console.error('Failed to load process files:', error);
+            this.showNotification('File Loading Error', `Failed to load ${processType} process files`, 'error');
+        }
     }
 
     // =============================
@@ -132,13 +212,21 @@ class ZKPretAsyncApp {
             this.setupFileDropZones();
             this.setupExecutionButtons();
             
+            // Initialize file picker for process integrity if it's the target
+            if (mode === 'process-integrity') {
+                const processTypeSelect = document.getElementById('process-type-select');
+                if (processTypeSelect && processTypeSelect.value) {
+                    this.populateProcessFileDropdowns(processTypeSelect.value);
+                }
+            }
+            
             // Log debug info to verify form elements are present
             console.log('🔧 Special mode initialized:', {
                 mode,
                 targetTab: document.getElementById(`${mode}-tab`),
                 processTypeSelect: document.getElementById('process-type-select'),
-                actualProcessDropZone: document.getElementById('actual-process-drop-zone'),
-                expectedProcessDropZone: document.getElementById('expected-process-drop-zone'),
+                expectedProcessSelect: document.getElementById('expected-process-file-select'),
+                actualProcessSelect: document.getElementById('actual-process-file-select'),
                 executeButton: document.getElementById('process-integrity-execute-btn')
             });
         }, 100);
@@ -208,6 +296,16 @@ class ZKPretAsyncApp {
                 btn.addEventListener('click', handler);
             }
         });
+        
+        // Add process type change handler for file picker
+        const processTypeSelect = document.getElementById('process-type-select');
+        if (processTypeSelect) {
+            processTypeSelect.addEventListener('change', (e) => {
+                const processType = e.target.value;
+                console.log(`🔄 Process type changed to: ${processType}`);
+                this.populateProcessFileDropdowns(processType);
+            });
+        }
     }
 
     setupUtilityButtons() {
@@ -630,8 +728,12 @@ class ZKPretAsyncApp {
             return;
         }
 
-        if (!this.uploadedFiles.actualProcessFile || !this.uploadedFiles.expectedProcessFile) {
-            this.showNotification('Missing Files', 'Please upload both expected and actual process files (BPMN 2.0 format)', 'error');
+        // Get selected files from dropdowns instead of uploaded files
+        const expectedFileName = document.getElementById('expected-process-file-select')?.value;
+        const actualFileName = document.getElementById('actual-process-file-select')?.value;
+
+        if (!expectedFileName || !actualFileName) {
+            this.showNotification('Missing Files', 'Please select both expected and actual process files from the dropdowns', 'error');
             return;
         }
 
@@ -671,10 +773,8 @@ class ZKPretAsyncApp {
             const parameters = {
                 command: 'node ./build/tests/with-sign/BusinessProcessIntegrityVerificationFileTestWithSign.js',
                 processType: processParam,
-                expectedProcessFile: this.uploadedFiles.expectedProcessFile.name,
-                actualProcessFile: this.uploadedFiles.actualProcessFile.name,
-                expectedFileContent: await this.readFileContent(this.uploadedFiles.expectedProcessFile),
-                actualFileContent: await this.readFileContent(this.uploadedFiles.actualProcessFile),
+                expectedProcessFile: expectedFileName,  // Just the filename from dropdown
+                actualProcessFile: actualFileName,      // Just the filename from dropdown
                 typeOfNet: 'TESTNET'
             };
 

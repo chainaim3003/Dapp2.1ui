@@ -472,69 +472,78 @@ class ZKPretClient {
                     args.push('SCF'); // Default to SCF
                     console.log('Added BPI arg 1 (default process type): "SCF"');
                 }
-                // Map to actual file paths in the ZK-PRET directory structure
+                // Map to actual file paths using environment variables
+                const basePath = this.config.stdioPath;
                 let expectedFilePath, actualFilePath;
                 if (processType === 'SCF') {
-                    expectedFilePath = './src/data/scf/process/EXPECTED/bpmn-SCF-Example-Process-Expected.bpmn';
+                    const expectedRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_SCF_EXPECTED || './src/data/SCF/process/EXPECTED';
+                    const actualRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_SCF_ACTUAL || './src/data/SCF/process/ACTUAL';
+                    expectedFilePath = `${expectedRelPath}/bpmn-SCF-Example-Process-Expected.bpmn`;
                     // Intelligent mapping based on uploaded filename
                     if (actualFileName && actualFileName.includes('Accepted-1')) {
-                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('Accepted-2')) {
-                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Accepted-2.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmn-SCF-Example-Execution-Actual-Accepted-2.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('Rejected-1')) {
-                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Rejected-1.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmn-SCF-Example-Execution-Actual-Rejected-1.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('Rejected-2')) {
-                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Rejected-2.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmn-SCF-Example-Execution-Actual-Rejected-2.bpmn`;
                     }
                     else {
-                        actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn'; // Default
+                        actualFilePath = `${actualRelPath}/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn`; // Default
                     }
                 }
                 else if (processType === 'DVP') {
-                    expectedFilePath = './src/data/DVP/process/bpmnCircuitDVP-expected.bpmn';
+                    const expectedRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_DVP_EXPECTED || './src/data/DVP/process/EXPECTED';
+                    const actualRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_DVP_ACTUAL || './src/data/DVP/process/ACTUAL';
+                    expectedFilePath = `${expectedRelPath}/bpmnCircuitDVP-expected.bpmn`;
                     // Intelligent mapping for DVP files
                     if (actualFileName && actualFileName.includes('accepted1')) {
-                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-accepted1.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmnCircuitDVP-accepted1.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('accepted2')) {
-                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-accepted2.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmnCircuitDVP-accepted2.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('rejected1')) {
-                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-rejected1.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmnCircuitDVP-rejected1.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('rejected2')) {
-                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-rejected2.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmnCircuitDVP-rejected2.bpmn`;
                     }
                     else {
-                        actualFilePath = './src/data/DVP/process/bpmnCircuitDVP-accepted1.bpmn'; // Default
+                        actualFilePath = `${actualRelPath}/bpmnCircuitDVP-accepted1.bpmn`; // Default
                     }
                 }
                 else if (processType === 'STABLECOIN') {
-                    expectedFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-expected.bpmn';
+                    const expectedRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_STABLECOIN_EXPECTED || './src/data/STABLECOIN/EXPECTED';
+                    const actualRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_STABLECOIN_ACTUAL || './src/data/STABLECOIN/process/ACTUAL';
+                    expectedFilePath = `${expectedRelPath}/bpmnCircuitSTABLECOIN-expected.bpmn`;
                     // Intelligent mapping for STABLECOIN files
                     if (actualFileName && actualFileName.includes('accepted1')) {
-                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-accepted1.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmnCircuitSTABLECOIN-accepted1.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('accepted2')) {
-                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-accepted2.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmnCircuitSTABLECOIN-accepted2.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('rejected1')) {
-                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-rejected1.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmnCircuitSTABLECOIN-rejected1.bpmn`;
                     }
                     else if (actualFileName && actualFileName.includes('rejected2')) {
-                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-rejected2.bpmn';
+                        actualFilePath = `${actualRelPath}/bpmnCircuitSTABLECOIN-rejected2.bpmn`;
                     }
                     else {
-                        actualFilePath = './src/data/STABLECOIN/process/bpmnCircuitSTABLECOIN-accepted1.bpmn'; // Default
+                        actualFilePath = `${actualRelPath}/bpmnCircuitSTABLECOIN-accepted1.bpmn`; // Default
                     }
                 }
                 else {
                     // Fallback to SCF
-                    expectedFilePath = './src/data/scf/process/EXPECTED/bpmn-SCF-Example-Process-Expected.bpmn';
-                    actualFilePath = './src/data/scf/process/ACTUAL/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn';
+                    const expectedRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_SCF_EXPECTED || './src/data/SCF/process/EXPECTED';
+                    const actualRelPath = process.env.ZK_PRET_DATA_PROCESS_PATH_SCF_ACTUAL || './src/data/SCF/process/ACTUAL';
+                    expectedFilePath = `${expectedRelPath}/bpmn-SCF-Example-Process-Expected.bpmn`;
+                    actualFilePath = `${actualRelPath}/bpmn-SCF-Example-Execution-Actual-Accepted-1.bpmn`;
                 }
                 args.push(expectedFilePath);
                 console.log(`Added BPI arg 2 (expected file path): "${expectedFilePath}"`);

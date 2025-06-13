@@ -4,6 +4,8 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
+import fs from 'fs';
+import path from 'path';
 import { logger } from './utils/logger.js';
 import { zkPretClient } from './services/zkPretClient.js';
 
@@ -420,6 +422,77 @@ app.post('/api/v1/composed-compliance/execute', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Composed compliance execution failed',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Process Files API - Get available BPMN files for file picker
+app.get('/api/v1/process-files/:processType/:fileType', async (req, res) => {
+  try {
+    const { processType, fileType } = req.params;
+    const basePath = process.env.ZK_PRET_STDIO_PATH;
+    
+    // Validate process type and file type
+    if (!['SCF', 'DVP', 'STABLECOIN'].includes(processType)) {
+      return res.status(400).json({ error: 'Invalid process type' });
+    }
+    
+    if (!['expected', 'actual'].includes(fileType.toLowerCase())) {
+      return res.status(400).json({ error: 'Invalid file type. Must be "expected" or "actual"' });
+    }
+    
+    const envVar = `ZK_PRET_DATA_PROCESS_PATH_${processType}_${fileType.toUpperCase()}`;
+    const relativePath = process.env[envVar];
+    
+    if (!relativePath || !basePath) {
+      return res.status(400).json({ 
+        error: 'Path not configured', 
+        envVar,
+        relativePath,
+        basePath: !!basePath 
+      });
+    }
+    
+    const fullPath = path.join(basePath, relativePath);
+    
+    logger.info('Reading process files', {
+      processType,
+      fileType,
+      envVar,
+      relativePath,
+      fullPath
+    });
+    
+    // Check if directory exists
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ 
+        error: 'Directory not found', 
+        path: fullPath 
+      });
+    }
+    
+    const files = fs.readdirSync(fullPath)
+      .filter(f => f.endsWith('.bpmn'))
+      .sort(); // Sort alphabetically
+    
+    res.json({ 
+      files, 
+      path: relativePath,
+      processType,
+      fileType,
+      count: files.length
+    });
+    
+  } catch (error) {
+    logger.error('Failed to read process files', {
+      error: error instanceof Error ? error.message : String(error),
+      processType: req.params.processType,
+      fileType: req.params.fileType
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to read directory',
       details: error instanceof Error ? error.message : String(error)
     });
   }
