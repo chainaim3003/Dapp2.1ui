@@ -15,6 +15,7 @@ class ZKPretAsyncApp {
         this.eximComponent = null;
         this.scfComponent = null;
         this.riskComponent = null;
+        this.dataIntegrityComponent = null;
         this.uploadedFiles = {
             dataFile: null,
             actualProcessFile: null,
@@ -42,7 +43,8 @@ class ZKPretAsyncApp {
                 corporate: !!this.corporateComponent,
                 exim: !!this.eximComponent,
                 scf: !!this.scfComponent,
-                risk: !!this.riskComponent
+                risk: !!this.riskComponent,
+                dataIntegrity: !!this.dataIntegrityComponent
             }
         });
     }
@@ -57,6 +59,10 @@ class ZKPretAsyncApp {
         await this.checkConnection();
         this.updateModeDisplay();
         
+        // Initialize result display manager
+        // Temporarily disabled to fix execution issues
+        // this.initializeResultDisplayManager();
+        
         // Initialize default file picker for SCF process type
         setTimeout(() => {
             const processTypeSelect = document.getElementById('process-type-select');
@@ -66,19 +72,6 @@ class ZKPretAsyncApp {
             
             // Initialize bill of lading files for data integrity
             this.populateBillOfLadingFiles();
-            
-            // Debug: Check if components are available
-            console.log('🔍 Available components:', {
-                RiskComponent: typeof window.RiskComponent,
-                GLEIFComponent: typeof window.GLEIFComponent,
-                CorporateComponent: typeof window.CorporateComponent,
-                SCFComponent: typeof window.SCFComponent
-            });
-            
-            // Force initialization of Risk component if in risk mode
-            if (this.currentTab === 'risk' && !this.riskComponent) {
-                this.forceInitializeRiskComponent();
-            }
         }, 500);
         
         console.log('✅ ZK-PRET Application initialized successfully');
@@ -89,6 +82,55 @@ class ZKPretAsyncApp {
         if (window.zkAppInitCount > 1) {
             console.warn(`⚠️ Multiple app initializations detected! Count: ${window.zkAppInitCount}`);
             console.trace('Init call trace:');
+        }
+    }
+
+    // =============================
+    // RESULT DISPLAY METHODS (SIMPLIFIED)
+    // =============================
+    
+    // Main result display method - handles all result types
+    displayResult(result, context = {}) {
+        console.log('📋 Displaying result:', { toolName: result.toolName || context.toolName, success: result.success });
+        
+        const container = document.getElementById('execution-results');
+        if (!container) return;
+
+        // Check for Business Standard Data Integrity results
+        const toolName = result.toolName || context.toolName || '';
+        if (result.success && (toolName.includes('BSDI') || toolName.includes('get-BSDI-compliance-verification'))) {
+            this.displayBusinessDataIntegrityResult(result, context);
+            return;
+        }
+
+        // Default result display for all other tools
+        if (result.success) {
+            const formattedToolName = this.formatToolName(toolName);
+            
+            container.innerHTML = `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-center mb-3">
+                        <div class="text-green-600 text-2xl mr-3">✅</div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-green-800">Success</h3>
+                            <p class="text-green-700">ZK Proof Generated Successfully</p>
+                        </div>
+                    </div>
+                    <div class="text-sm text-green-600 space-y-1">
+                        <p><strong>Tool:</strong> ${formattedToolName}</p>
+                        <p><strong>Status:</strong> ZK Proof Generated</p>
+                        <p><strong>Time:</strong> ${result.executionTime || 'N/A'}</p>
+                    </div>
+                    ${result.result?.output ? `
+                        <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+                            <h4 class="font-medium text-gray-700 mb-2">Output:</h4>
+                            <pre class="text-sm text-gray-600 whitespace-pre-wrap">${result.result.output.substring(0, 500)}${result.result.output.length > 500 ? '...' : ''}</pre>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            this.displayError(result.error || 'Unknown error');
         }
     }
 
@@ -282,21 +324,6 @@ class ZKPretAsyncApp {
                 this.populateBillOfLadingFiles();
             }
             
-            // Initialize RiskComponent for risk mode
-            if (mode === 'risk' && !this.riskComponent) {
-                if (window.RiskComponent) {
-                    try {
-                        console.log('🔧 Initializing RiskComponent for special mode');
-                        this.riskComponent = new window.RiskComponent();
-                        console.log('✅ RiskComponent initialized successfully');
-                    } catch (error) {
-                        console.error('❌ Failed to initialize Risk component:', error);
-                    }
-                } else {
-                    console.error('❌ RiskComponent class not found');
-                }
-            }
-            
             // Log debug info to verify form elements are present
             console.log('🔧 Special mode initialized:', {
                 mode,
@@ -304,9 +331,7 @@ class ZKPretAsyncApp {
                 processTypeSelect: document.getElementById('process-type-select'),
                 expectedProcessSelect: document.getElementById('expected-process-file-select'),
                 actualProcessSelect: document.getElementById('actual-process-file-select'),
-                executeButton: document.getElementById('process-integrity-execute-btn'),
-                riskContent: document.getElementById('risk-content'),
-                riskComponent: !!this.riskComponent
+                executeButton: document.getElementById('process-integrity-execute-btn')
             });
         }, 100);
     }
@@ -362,7 +387,7 @@ class ZKPretAsyncApp {
             { id: 'exim-execute-btn', handler: () => this.executeEXIM() },
             { id: 'data-integrity-execute-btn', handler: () => this.executeBusinessDataIntegrity() },
             { id: 'process-integrity-execute-btn', handler: () => this.executeBusinessProcessIntegrity() },
-            // Risk execution is now handled by RiskComponent internally
+            { id: 'risk-execute-btn', handler: () => this.executeRiskLiquidity() },
             { id: 'scf-execute-btn', handler: () => this.executeSCF() },
             { id: 'deep-composition-execute-btn', handler: () => this.executeDeepComposition() },
             { id: 'registry-execute-btn', handler: () => this.executeRegistry() },
@@ -636,50 +661,38 @@ class ZKPretAsyncApp {
         if (tabName === 'risk' && !this.riskComponent) {
             if (window.RiskComponent) {
                 try {
-                    console.log('🔧 Initializing RiskComponent for normal tab switch');
                     this.riskComponent = new window.RiskComponent();
-                    console.log('✅ RiskComponent initialized successfully');
                 } catch (error) {
-                    console.error('❌ Failed to initialize Risk component:', error);
+                    console.error('Failed to initialize Risk component:', error);
                 }
-            } else {
-                console.error('❌ RiskComponent class not found during tab switch');
             }
         }
-    }
-    
-    forceInitializeRiskComponent() {
-        console.log('🔧 Force initializing RiskComponent...');
         
-        if (window.RiskComponent) {
-            try {
-                console.log('✅ RiskComponent class found, creating instance...');
-                this.riskComponent = new window.RiskComponent();
-                console.log('✅ RiskComponent force initialization successful');
-            } catch (error) {
-                console.error('❌ RiskComponent force initialization failed:', error);
-                console.error('Error details:', error.stack);
-            }
-        } else {
-            console.error('❌ RiskComponent class not available for force initialization');
-            console.log('🔍 Checking window object:', Object.keys(window).filter(key => key.includes('Risk')));
-            
-            // Try again after a short delay
-            setTimeout(() => {
-                console.log('🔄 Retrying RiskComponent initialization...');
-                if (window.RiskComponent) {
-                    try {
-                        this.riskComponent = new window.RiskComponent();
-                        console.log('✅ RiskComponent retry initialization successful');
-                    } catch (error) {
-                        console.error('❌ RiskComponent retry failed:', error);
-                    }
-                } else {
-                    console.error('❌ RiskComponent still not available after retry');
+        // Initialize Data Integrity component if needed
+        if (tabName === 'data-integrity' && !this.dataIntegrityComponent) {
+            if (window.DataIntegrityComponent) {
+                try {
+                    this.dataIntegrityComponent = new window.DataIntegrityComponent();
+                    // Store reference to app for component to use async/sync execution
+                    this.dataIntegrityComponent.app = this;
+                    console.log('✅ Data Integrity component initialized with app reference');
+                } catch (error) {
+                    console.error('Failed to initialize Data Integrity component:', error);
                 }
-            }, 1000);
+            }
         }
-    }
+        
+        // Initialize Risk component if needed
+        if (tabName === 'risk' && !this.riskComponent) {
+            if (window.RiskComponent) {
+                try {
+                    this.riskComponent = new window.RiskComponent();
+                    console.log('✅ Risk component initialized');
+                } catch (error) {
+                    console.error('Failed to initialize Risk component:', error);
+                }
+            }
+        }
 
     updateTabUI(tabName) {
         console.log(`📝 Updating UI for tab: ${tabName}`);
@@ -839,9 +852,7 @@ class ZKPretAsyncApp {
 
     async executeBusinessDataIntegrity() {
         const timestamp = new Date().toISOString();
-        const callStack = new Error().stack;
         console.log(`📝 executeBusinessDataIntegrity() called at ${timestamp}`);
-        console.log('🔍 Call stack:', callStack);
         
         // Prevent double execution
         const executeBtn = document.getElementById('data-integrity-execute-btn');
@@ -855,6 +866,14 @@ class ZKPretAsyncApp {
             return;
         }
 
+        // Use the DataIntegrityComponent if available for validation and parameter preparation
+        if (this.dataIntegrityComponent && typeof this.dataIntegrityComponent.executeDataIntegrityVerification === 'function') {
+            console.log('🔗 Delegating to DataIntegrityComponent for execution');
+            return await this.dataIntegrityComponent.executeDataIntegrityVerification();
+        }
+
+        // Fallback to original logic if component not available
+        console.log('⚠️ DataIntegrityComponent not available, using fallback logic');
         const dataType = document.getElementById('data-type-select')?.value;
         const selectedFile = document.getElementById('data-file-select')?.value;
 
@@ -863,21 +882,14 @@ class ZKPretAsyncApp {
             return;
         }
 
-        // Disable button to prevent double execution
-        if (executeBtn) {
-            executeBtn.disabled = true;
-            executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
-        }
-
         try {
-            // Construct the file path for the command pattern
-            // The pattern should be: node ./build/tests/with-sign/BusinessStandardDataIntegrityVerificationTest.js ./src/data/scf/BILLOFLADING/actualBL1-VALID.json
             const relativeFilePath = `./src/data/SCF/BILLOFLADING/${selectedFile}`;
             
             const parameters = { 
                 command: 'node ./build/tests/with-sign/BusinessStandardDataIntegrityVerificationTest.js',
                 dataType: dataType,
                 filePath: relativeFilePath,
+                selectedFile: selectedFile,
                 typeOfNet: 'TESTNET'
             };
             
@@ -885,12 +897,6 @@ class ZKPretAsyncApp {
         } catch (error) {
             console.error('Business Data Integrity execution error:', error);
             this.showNotification('Execution Error', 'Failed to execute Business Data Integrity verification', 'error');
-        } finally {
-            // Re-enable button
-            if (executeBtn) {
-                executeBtn.disabled = false;
-                executeBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Generate Business Integrity Data Proof';
-            }
         }
     }
 
@@ -971,18 +977,52 @@ class ZKPretAsyncApp {
         }
     }
 
-    // Risk execution is now handled by RiskComponent internally
-    // Provide methods for RiskComponent integration
-    async executeRiskVerificationTool(toolName, parameters) {
-        return await this.executeTool(toolName, parameters);
-    }
-    
-    displayExecutionResult(result) {
-        if (result.success) {
-            this.displayResult(result);
-        } else {
-            this.displayError(result.error || 'Execution failed');
+    async executeRiskLiquidity() {
+        const riskType = document.getElementById('risk-type-select')?.value;
+        const threshold = document.getElementById('risk-threshold-input')?.value?.trim();
+        const actusUrl = document.getElementById('risk-actus-url-input')?.value?.trim();
+
+        if (!threshold) {
+            this.showNotification('Missing Information', 'Please enter the threshold value', 'error');
+            return;
         }
+
+        // Only require ACTUS URL for non-stablecoin verifications
+        if (riskType !== 'STABLECOIN_RESERVES' && !actusUrl) {
+            this.showNotification('Missing Information', 'Please enter the ACTUS URL', 'error');
+            return;
+        }
+
+        const thresholdNum = parseFloat(threshold);
+        if (isNaN(thresholdNum) || thresholdNum < 0 || thresholdNum > 99999) {
+            this.showNotification('Invalid Threshold', 'Threshold must be a number between 0 and 99999', 'error');
+            return;
+        }
+
+        // Map risk type to correct tool name
+        const toolNameMap = {
+            'ACTUS_ADV': 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk',
+            'BASEL3': 'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign',
+            'STABLECOIN_RESERVES': 'get-StablecoinProofOfReserves-verification-with-sign'
+        };
+        
+        const toolName = toolNameMap[riskType];
+        if (!toolName) {
+            this.showNotification('Invalid Risk Type', 'Please select a valid risk assessment type', 'error');
+            return;
+        }
+
+        const parameters = {
+            threshold: thresholdNum,
+            riskType: riskType
+        };
+        
+        // Add ACTUS URL for non-stablecoin verifications
+        if (riskType !== 'STABLECOIN_RESERVES') {
+            parameters.actusUrl = actusUrl;
+        }
+
+        await this.executeTool(toolName, parameters);
     }
 
     async executeSCF() {
@@ -1184,7 +1224,9 @@ class ZKPretAsyncApp {
             });
 
             const result = await response.json();
-            this.displayResult(result);
+            
+            // Use simplified result display with context
+            this.displayResult(result, { toolName, parameters, mode: 'sync' });
         } catch (error) {
             this.displayError(error.message);
         } finally {
@@ -1242,7 +1284,13 @@ class ZKPretAsyncApp {
             job.endTime = new Date();
             
             if (data.status === 'completed' && data.result) {
-                this.displayResult(data.result);
+                // Use simplified result display with context
+                this.displayResult(data.result, { 
+                    toolName: job.toolName, 
+                    parameters: job.parameters, 
+                    mode: 'async',
+                    jobId: data.jobId
+                });
             } else if (data.status === 'failed') {
                 this.displayError(data.error || 'Job execution failed');
             }
@@ -1402,6 +1450,12 @@ class ZKPretAsyncApp {
         const container = document.getElementById('execution-results');
         if (!container) return;
 
+        // Check if this is a Business Standard Data Integrity result and display accordingly
+        if (result.success && (result.toolName?.includes('BSDI') || result.toolName?.includes('get-BSDI-compliance-verification'))) {
+            this.displayBusinessDataIntegrityResult(result);
+            return;
+        }
+
         if (result.success) {
             container.innerHTML = `
                 <div class="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -1427,6 +1481,113 @@ class ZKPretAsyncApp {
             `;
         } else {
             this.displayError(result.error || 'Unknown error');
+        }
+    }
+
+    displayBusinessDataIntegrityResult(result, context = {}) {
+        // Get or create results container specifically for data integrity tab
+        let resultsContainer = document.getElementById('data-integrity-results');
+        if (!resultsContainer) {
+            resultsContainer = document.createElement('div');
+            resultsContainer.id = 'data-integrity-results';
+            resultsContainer.className = 'mt-6 bg-green-50 border border-green-200 rounded-lg p-4';
+            
+            // Try to append to data integrity tab
+            const dataIntegrityTab = document.getElementById('data-integrity-tab');
+            if (dataIntegrityTab) {
+                dataIntegrityTab.appendChild(resultsContainer);
+            } else {
+                // Fallback to execution results if tab not found
+                const executionResults = document.getElementById('execution-results');
+                if (executionResults) {
+                    executionResults.appendChild(resultsContainer);
+                }
+            }
+        }
+        
+        // Get the selected file name for display
+        const selectedFile = context.parameters?.selectedFile || 
+                            document.getElementById('data-file-select')?.value || 
+                            'N/A';
+        const dataType = context.parameters?.dataType || 
+                        document.getElementById('data-type-select')?.value || 
+                        'DCSA-BillofLading-V3';
+        
+        resultsContainer.innerHTML = `
+            <div class="flex items-start">
+                <i class="fas fa-check-circle text-green-600 mt-0.5 mr-3"></i>
+                <div class="flex-1">
+                    <h4 class="font-bold text-green-800 mb-2">Business Standard Data Integrity Verification Complete</h4>
+                    <div class="text-sm text-green-700 space-y-2">
+                        <p><strong>Status:</strong> ${result.success ? 'SUCCESS' : 'FAILED'}</p>
+                        <p><strong>Data Type:</strong> ${dataType}</p>
+                        <p><strong>File Verified:</strong> ${selectedFile}</p>
+                        <p><strong>ZK Proof Generated:</strong> ${result.result?.zkProofGenerated ? 'Yes' : 'No'}</p>
+                        <p><strong>Execution Time:</strong> ${result.executionTime || 'N/A'}</p>
+                        <p><strong>Timestamp:</strong> ${result.result?.timestamp || new Date().toISOString()}</p>
+                        ${result.result?.executionStrategy ? `<p><strong>Strategy:</strong> ${result.result.executionStrategy}</p>` : ''}
+                    </div>
+                    
+                    ${result.result?.executionMetrics ? `
+                        <div class="mt-3 p-3 bg-white rounded border">
+                            <h5 class="font-medium text-gray-700 mb-2">Integrity Verification Metrics</h5>
+                            <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                ${result.result.executionMetrics.proofGenerated ? '<div>✅ Proof Generated</div>' : ''}
+                                ${result.result.executionMetrics.circuitCompiled ? '<div>✅ Circuit Compiled</div>' : ''}
+                                ${result.result.executionMetrics.verificationSuccessful ? '<div>✅ Verification Successful</div>' : ''}
+                                ${result.result.executionMetrics.timings ? `<div><strong>Processing Time:</strong> ${result.result.executionMetrics.timings.join(', ')} ms</div>` : ''}
+                                ${result.result.executionMetrics.sizeMetrics ? `<div><strong>Data Size:</strong> ${result.result.executionMetrics.sizeMetrics.join(', ')}</div>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
+                        <h5 class="font-medium text-blue-700 mb-2">What This Verification Proves</h5>
+                        <div class="text-sm text-blue-600 space-y-1">
+                            <div class="flex items-center"><i class="fas fa-shield-alt mr-2"></i>Data integrity without revealing content</div>
+                            <div class="flex items-center"><i class="fas fa-fingerprint mr-2"></i>Cryptographic hash validation</div>
+                            <div class="flex items-center"><i class="fas fa-lock mr-2"></i>Zero-knowledge proof of compliance</div>
+                            <div class="flex items-center"><i class="fas fa-check-double mr-2"></i>DCSA standard adherence verification</div>
+                        </div>
+                    </div>
+                    
+                    ${result.result?.output ? `
+                        <details class="mt-3">
+                            <summary class="cursor-pointer text-green-700 hover:text-green-800 font-medium">
+                                <i class="fas fa-code mr-1"></i>View Technical Execution Output
+                            </summary>
+                            <pre class="mt-2 bg-white border rounded p-3 text-xs overflow-auto max-h-64 text-gray-800">${result.result.output}</pre>
+                        </details>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+        
+        // Scroll results into view
+        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        
+        // Also update the general execution results for consistency
+        const executionResults = document.getElementById('execution-results');
+        if (executionResults) {
+            executionResults.innerHTML = `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-center mb-3">
+                        <div class="text-green-600 text-2xl mr-3">✅</div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-green-800">Business Data Integrity Verified</h3>
+                            <p class="text-green-700">Zero-knowledge proof of data integrity generated successfully</p>
+                        </div>
+                    </div>
+                    <div class="text-sm text-green-600 space-y-1">
+                        <p><strong>File:</strong> ${selectedFile}</p>
+                        <p><strong>Data Type:</strong> ${dataType}</p>
+                        <p><strong>Execution Time:</strong> ${result.executionTime || 'N/A'}</p>
+                    </div>
+                    <div class="mt-3 text-xs text-green-600">
+                        <i class="fas fa-info-circle mr-1"></i>Detailed results are shown in the Data Integrity tab
+                    </div>
+                </div>
+            `;
         }
     }
 

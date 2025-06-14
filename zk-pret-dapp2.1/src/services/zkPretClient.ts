@@ -135,6 +135,7 @@ class ZKPretClient {
       'get-BPI-compliance-verification',
       'get-RiskLiquidityACTUS-Verifier-Test_adv_zk',
       'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign',
+      'get-StablecoinProofOfReservesRisk-verification-with-sign',
       // Composed proof tools
       'execute-composed-proof-full-kyc',
       'execute-composed-proof-financial-risk',
@@ -210,6 +211,7 @@ class ZKPretClient {
       'get-BPI-compliance-verification': 'BusinessProcessIntegrityVerificationFileTestWithSign.js',
       'get-RiskLiquidityACTUS-Verifier-Test_adv_zk': 'RiskLiquidityACTUSVerifierTest_adv_zk_WithSign.js',
       'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign': 'RiskLiquidityACTUSVerifierTest_basel3_Withsign.js',
+      'get-StablecoinProofOfReservesRisk-verification-with-sign': 'StablecoinProofOfReservesRiskVerificationTestWithSign.js',
       // Composed proof tools - using optimized recursive versions
       'execute-composed-proof-full-kyc': 'ComposedRecursiveOptim3LevelVerificationTestWithSign.js',  // FIXED: Use actual optimized version
       'execute-composed-proof-financial-risk': 'ComposedRecurrsiveSCF3LevelProofs.js',  // FIXED: Use actual SCF proof version
@@ -624,6 +626,7 @@ class ZKPretClient {
         
       case 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk':
       case 'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign':
+      case 'get-StablecoinProofOfReservesRisk-verification-with-sign':
         // Risk & Liquidity verification expects: [threshold, actusUrl]
         const threshold = parameters.threshold;
         const actusUrl = parameters.actusUrl;
@@ -633,8 +636,8 @@ class ZKPretClient {
           console.log(`Added Risk arg 1 (threshold): "${threshold}"`);
         } else {
           console.log('⚠️  No threshold found for Risk verification');
-          args.push('0'); // Default threshold
-          console.log('Added Risk arg 1 (default threshold): "0"');
+          args.push('1'); // Default threshold to 1 as requested
+          console.log('Added Risk arg 1 (default threshold): "1"');
         }
         
         if (actusUrl) {
@@ -642,8 +645,9 @@ class ZKPretClient {
           console.log(`Added Risk arg 2 (ACTUS URL): "${actusUrl}"`);
         } else {
           console.log('⚠️  No ACTUS URL found for Risk verification');
-          args.push('default-url'); // Default URL placeholder
-          console.log('Added Risk arg 2 (default URL): "default-url"');
+          const defaultActusUrl = process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+          args.push(defaultActusUrl);
+          console.log(`Added Risk arg 2 (default ACTUS URL): "${defaultActusUrl}"`);
         }
         break;
         
