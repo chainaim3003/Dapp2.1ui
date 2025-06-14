@@ -231,7 +231,61 @@ class ZKPretAsyncApp {
     }
 
     showSCFOnly() {
+        console.log('🎯 showSCFOnly() called - Starting SCF special mode');
         this.showSpecialMode('scf', 'Supply Chain Finance Verification | ZK-PRET');
+        
+        // Initialize SCF Container Widget for special mode
+        setTimeout(async () => {
+            console.log('⏰ SCF initialization timeout triggered');
+            console.log('🔍 Current scfComponent state:', !!this.scfComponent);
+            console.log('🔍 SCFContainerWidget availability:', !!window.SCFContainerWidget);
+            
+            if (!this.scfComponent && window.SCFContainerWidget) {
+                try {
+                    console.log('🏗️ Initializing SCF Container Widget for special mode...');
+                    this.scfComponent = new window.SCFContainerWidget();
+                    console.log('✅ SCF Container Widget created successfully');
+                    
+                    await this.scfComponent.init();
+                    console.log('✅ SCF Container Widget init() completed');
+                    
+                    // Replace the loading content with the SCF container
+                    const containerContent = document.getElementById('scf-container-content');
+                    console.log('🔍 SCF container content element:', !!containerContent);
+                    
+                    if (containerContent) {
+                        containerContent.innerHTML = '';
+                        console.log('🧹 Cleared loading content');
+                        
+                        this.scfComponent.render();
+                        console.log('🎨 SCF Container Widget render() completed');
+                        
+                        // Check if the SCF container was rendered properly
+                        const scfTab = document.getElementById('scf-tab');
+                        console.log('🔍 SCF tab element:', !!scfTab);
+                        
+                        if (scfTab && scfTab.querySelector('.scf-container')) {
+                            console.log('📦 Moving SCF container content');
+                            containerContent.appendChild(scfTab.querySelector('.scf-container'));
+                            console.log('✅ SCF container content moved successfully');
+                        } else {
+                            console.warn('⚠️ SCF container element not found in scf-tab');
+                        }
+                    } else {
+                        console.error('❌ SCF container content element not found');
+                    }
+                    
+                    console.log('✅ SCF Container Widget initialized for special mode');
+                } catch (error) {
+                    console.error('❌ Failed to initialize SCF Container Widget for special mode:', error);
+                    console.error('❌ Error stack:', error.stack);
+                }
+            } else if (!window.SCFContainerWidget) {
+                console.error('❌ SCFContainerWidget class not available');
+            } else {
+                console.log('ℹ️ SCF component already exists, skipping initialization');
+            }
+        }, 200);
     }
 
     showDeepCompositionOnly() {
@@ -239,29 +293,48 @@ class ZKPretAsyncApp {
     }
 
     showSpecialMode(mode, title) {
+        console.log(`🚀 showSpecialMode() called for mode: ${mode}`);
+        
         const mainNav = document.querySelector('#tab-navigation nav:first-child');
         const specialNav = document.getElementById(`${mode}-only-nav`);
         
-        if (mainNav) mainNav.classList.add('hidden');
-        if (specialNav) specialNav.classList.remove('hidden');
+        console.log('🔍 Main nav element:', !!mainNav);
+        console.log('🔍 Special nav element:', !!specialNav);
+        
+        if (mainNav) {
+            mainNav.classList.add('hidden');
+            console.log('✅ Main navigation hidden');
+        }
+        if (specialNav) {
+            specialNav.classList.remove('hidden');
+            console.log('✅ Special navigation shown');
+        }
         
         // Hide all tabs except the target
-        document.querySelectorAll('.tab-content').forEach(content => {
+        const allTabContents = document.querySelectorAll('.tab-content');
+        console.log(`🔍 Found ${allTabContents.length} tab content elements`);
+        
+        allTabContents.forEach(content => {
             if (content.id !== `${mode}-tab`) {
                 content.style.display = 'none';
                 content.classList.add('hidden');
                 content.classList.remove('active');
+                console.log(`📦 Hidden tab: ${content.id}`);
             } else {
                 // Show the target tab properly
                 content.style.display = 'block';
                 content.classList.remove('hidden');
                 content.classList.add('active');
+                console.log(`✅ Activated tab: ${content.id}`);
             }
         });
         
         this.currentTab = mode;
         document.title = title;
         sessionStorage.removeItem('zkpret_target_tab');
+        
+        console.log(`✅ Current tab set to: ${mode}`);
+        console.log(`📝 Document title set to: ${title}`);
         
         // FIX: Re-initialize form elements after DOM changes
         setTimeout(() => {
@@ -621,13 +694,52 @@ class ZKPretAsyncApp {
             }
         }
         
-        // Initialize SCF component if needed
+        // Initialize SCF container if needed
         if (tabName === 'scf' && !this.scfComponent) {
-            if (window.SCFComponent) {
-                try {
-                    this.scfComponent = new window.SCFComponent();
-                } catch (error) {
-                    console.error('Failed to initialize SCF component:', error);
+            if (window.SCFContainerWidget) {
+                (async () => {
+                    try {
+                        console.log('🏗️ Initializing SCF Container Widget...');
+                        this.scfComponent = new window.SCFContainerWidget();
+                        await this.scfComponent.init();
+                        
+                        // Replace the loading content with the SCF container
+                        const containerContent = document.getElementById('scf-container-content');
+                        if (containerContent) {
+                            containerContent.innerHTML = '';
+                            this.scfComponent.render();
+                            // Move the rendered content from scf-tab to the container
+                            const scfTab = document.getElementById('scf-tab');
+                            if (scfTab && scfTab.querySelector('.scf-container')) {
+                                containerContent.appendChild(scfTab.querySelector('.scf-container'));
+                            }
+                        }
+                        
+                        console.log('✅ SCF Container Widget initialized successfully');
+                    } catch (error) {
+                        console.error('❌ Failed to initialize SCF Container Widget:', error);
+                        // Show error in the container
+                        const containerContent = document.getElementById('scf-container-content');
+                        if (containerContent) {
+                            containerContent.innerHTML = `
+                                <div class="text-center py-8 text-red-600">
+                                    <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                                    <p class="font-semibold">Failed to Load SCF Container</p>
+                                    <p class="text-sm text-gray-600 mt-2">${error.message}</p>
+                                </div>
+                            `;
+                        }
+                    }
+                })();
+            } else {
+                console.error('❌ SCFContainerWidget not available');
+                // Fallback to basic SCF component
+                if (window.SCFComponent) {
+                    try {
+                        this.scfComponent = new window.SCFComponent();
+                    } catch (error) {
+                        console.error('Failed to initialize fallback SCF component:', error);
+                    }
                 }
             }
         }
@@ -709,7 +821,7 @@ class ZKPretAsyncApp {
                 }
             }
         } else {
-            // For non-compliance tabs, remove active from super-tab
+            // For non-compliance tabs (including SCF), remove active from super-tab
             const superTab = document.querySelector('.tab-btn.super-tab');
             if (superTab) {
                 superTab.classList.remove('active');
@@ -1849,10 +1961,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check if user came from home page with specific tab target
     const targetTab = sessionStorage.getItem('zkpret_target_tab');
     if (targetTab) {
+        console.log('🎯 Target tab from sessionStorage:', targetTab);
         sessionStorage.removeItem('zkpret_target_tab');
         setTimeout(() => {
-            if (window.app.switchTab) {
-                window.app.switchTab(targetTab);
+            if (window.app) {
+                // Call appropriate special mode methods instead of regular tab switching
+                if (targetTab === 'scf') {
+                    console.log('🔄 Switching to SCF special mode');
+                    window.app.showSCFOnly();
+                } else if (targetTab === 'process-integrity') {
+                    console.log('🔄 Switching to Process Integrity special mode');
+                    window.app.showProcessIntegrityOnly();
+                } else if (targetTab === 'data-integrity') {
+                    console.log('🔄 Switching to Data Integrity special mode');
+                    window.app.showDataIntegrityOnly();
+                } else if (targetTab === 'risk') {
+                    console.log('🔄 Switching to Risk special mode');
+                    window.app.showRiskOnly();
+                } else if (targetTab === 'registry') {
+                    console.log('🔄 Switching to Registry special mode');
+                    window.app.showRegistryOnly();
+                } else if (targetTab === 'deep-composition') {
+                    console.log('🔄 Switching to DeepComposition special mode');
+                    window.app.showDeepCompositionOnly();
+                } else if (window.app.switchTab) {
+                    // For regular tabs (like compliance sub-tabs), use normal tab switching
+                    window.app.switchTab(targetTab);
+                }
             }
         }, 100);
     }
