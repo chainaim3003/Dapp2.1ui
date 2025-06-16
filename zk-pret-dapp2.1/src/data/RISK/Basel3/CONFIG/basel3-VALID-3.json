@@ -1,0 +1,27 @@
+{
+  "configId": "VALID-3",
+  "description": "Basel III configuration with LCR Pass (~105%) and NSFR Pass (~105%)",
+  "type": "VALID",
+  "liquidityCoverageRatio": {
+    "expectedValue": 105,
+    "threshold": 100,
+    "status": "Pass",
+    "description": "Short-term liquidity resilience test"
+  },
+  "netStableFundingRatio": {
+    "expectedValue": 105,
+    "threshold": 100,
+    "status": "Pass", 
+    "description": "Long-term funding stability test"
+  },
+  "contractResult": "100→90",
+  "riskParameters": {
+    "highQualityLiquidAssets": 105000000,
+    "totalNetCashOutflows": 100000000,
+    "availableStableFunding": 105000000,
+    "requiredStableFunding": 100000000
+  },
+  "complianceStatus": "COMPLIANT",
+  "timestamp": "2025-06-14T00:00:00Z",
+  "version": "Basel III v3.1"
+}

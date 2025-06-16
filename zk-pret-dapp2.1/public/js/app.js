@@ -223,7 +223,30 @@ class ZKPretAsyncApp {
     }
 
     showRiskOnly() {
+        console.log('🎯 showRiskOnly() called - Starting Risk special mode');
         this.showSpecialMode('risk', 'Risk & Liquidity Prover | ZK-PRET');
+        
+        // Initialize Risk Component for special mode
+        setTimeout(async () => {
+            console.log('⏰ Risk initialization timeout triggered');
+            console.log('🔍 Current riskComponent state:', !!this.riskComponent);
+            console.log('🔍 RiskComponent availability:', !!window.RiskComponent);
+            
+            if (!this.riskComponent && window.RiskComponent) {
+                try {
+                    console.log('🏗️ Initializing Risk Component for special mode...');
+                    this.riskComponent = new window.RiskComponent();
+                    console.log('✅ Risk Component created successfully');
+                } catch (error) {
+                    console.error('❌ Failed to initialize Risk Component for special mode:', error);
+                    console.error('❌ Error stack:', error.stack);
+                }
+            } else if (!window.RiskComponent) {
+                console.error('❌ RiskComponent class not available');
+            } else {
+                console.log('ℹ️ Risk component already exists, skipping initialization');
+            }
+        }, 200);
     }
 
     showRegistryOnly() {
@@ -751,6 +774,9 @@ class ZKPretAsyncApp {
                     console.log('🔧 Initializing RiskComponent for normal tab switch');
                     this.riskComponent = new window.RiskComponent();
                     console.log('✅ RiskComponent initialized successfully');
+                    
+                    // The Risk component now renders its own tab structure
+                    // It will default to Basel III tab as specified
                 } catch (error) {
                     console.error('❌ Failed to initialize Risk component:', error);
                 }
@@ -768,6 +794,7 @@ class ZKPretAsyncApp {
                 console.log('✅ RiskComponent class found, creating instance...');
                 this.riskComponent = new window.RiskComponent();
                 console.log('✅ RiskComponent force initialization successful');
+                console.log('🎯 RiskComponent will default to Basel III Compliance tab');
             } catch (error) {
                 console.error('❌ RiskComponent force initialization failed:', error);
                 console.error('Error details:', error.stack);
@@ -783,6 +810,7 @@ class ZKPretAsyncApp {
                     try {
                         this.riskComponent = new window.RiskComponent();
                         console.log('✅ RiskComponent retry initialization successful');
+                        console.log('🎯 RiskComponent will default to Basel III Compliance tab');
                     } catch (error) {
                         console.error('❌ RiskComponent retry failed:', error);
                     }

@@ -120,6 +120,7 @@ class ZKPretClient {
             'get-BPI-compliance-verification',
             'get-RiskLiquidityACTUS-Verifier-Test_adv_zk',
             'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign',
+            'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign',
             'get-StablecoinProofOfReservesRisk-verification-with-sign',
             // Composed proof tools
             'execute-composed-proof-full-kyc',
@@ -188,6 +189,7 @@ class ZKPretClient {
             'get-BPI-compliance-verification': 'BusinessProcessIntegrityVerificationFileTestWithSign.js',
             'get-RiskLiquidityACTUS-Verifier-Test_adv_zk': 'RiskLiquidityACTUSVerifierTest_adv_zk_WithSign.js',
             'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign': 'RiskLiquidityACTUSVerifierTest_basel3_Withsign.js',
+            'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign': 'RiskLiquidityBasel3OptimMerkleVerificationTestWithSign.js', // FIXED: Add Basel III mapping
             'get-StablecoinProofOfReservesRisk-verification-with-sign': 'StablecoinProofOfReservesRiskVerificationTestWithSign.js',
             // Composed proof tools - using optimized recursive versions
             'execute-composed-proof-full-kyc': 'ComposedRecursiveOptim3LevelVerificationTestWithSign.js', // FIXED: Use actual optimized version
@@ -586,6 +588,29 @@ class ZKPretClient {
                     const defaultActusUrl = process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
                     args.push(defaultActusUrl);
                     console.log(`Added Risk arg 2 (default ACTUS URL): "${defaultActusUrl}"`);
+                }
+                break;
+            case 'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign':
+                // Basel III verification expects: [lcrThreshold, nsfrThreshold, actusUrl, configFilePath]
+                const lcrThreshold = parameters.lcrThreshold || 100;
+                const nsfrThreshold = parameters.nsfrThreshold || 100;
+                const basel3ActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+                const configFilePath = parameters.configFilePath;
+                args.push(String(lcrThreshold));
+                console.log(`Added Basel III arg 1 (LCR threshold): "${lcrThreshold}"`);
+                args.push(String(nsfrThreshold));
+                console.log(`Added Basel III arg 2 (NSFR threshold): "${nsfrThreshold}"`);
+                args.push(String(basel3ActusUrl));
+                console.log(`Added Basel III arg 3 (ACTUS URL): "${basel3ActusUrl}"`);
+                if (configFilePath) {
+                    args.push(String(configFilePath));
+                    console.log(`Added Basel III arg 4 (config file path): "${configFilePath}"`);
+                }
+                else {
+                    console.log('⚠️  No config file path found for Basel III verification');
+                    const defaultConfigPath = 'src/data/RISK/Basel3/CONFIG/basel3-VALID-2.json';
+                    args.push(defaultConfigPath);
+                    console.log(`Added Basel III arg 4 (default config): "${defaultConfigPath}"`);
                 }
                 break;
             default:

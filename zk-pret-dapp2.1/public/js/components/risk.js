@@ -3,7 +3,10 @@ class RiskComponent {
         console.log('📌 RiskComponent constructor called');
         
         try {
+            this.currentRiskTab = 'basel3'; // Default to Basel III Compliance tab
             this.showStateChanges = false;
+            this.actusUrl = 'http://98.84.165.146:8083/eventsBatch'; // Default fallback
+            
             console.log('📌 Starting RiskComponent render...');
             this.render();
             console.log('📌 RiskComponent render completed');
@@ -12,11 +15,46 @@ class RiskComponent {
             this.setupEventListeners();
             console.log('📌 RiskComponent event listeners setup completed');
             
+            // Initialize configuration
+            this.initializeConfiguration();
+            
             console.log('✅ RiskComponent constructor completed successfully');
         } catch (error) {
             console.error('❌ RiskComponent constructor failed:', error);
             console.error('Error stack:', error.stack);
             throw error;
+        }
+    }
+
+    async initializeConfiguration() {
+        // Load ACTUS URL from server environment
+        await this.loadActusConfiguration();
+        
+        // Load Basel III config files
+        await this.populateBasel3ConfigFiles();
+    }
+
+    async loadActusConfiguration() {
+        try {
+            console.log('🔄 Loading ACTUS configuration from server...');
+            
+            const response = await fetch('/api/v1/actus-config');
+            if (response.ok) {
+                const data = await response.json();
+                this.actusUrl = data.actusUrl;
+                
+                // Update the input field if it exists
+                const actusInput = document.getElementById('basel3-actus-url');
+                if (actusInput) {
+                    actusInput.value = this.actusUrl;
+                }
+                
+                console.log(`✅ ACTUS URL loaded from ${data.source}:`, this.actusUrl);
+            } else {
+                console.log('⚠️ Failed to load ACTUS configuration, using default');
+            }
+        } catch (error) {
+            console.error('Failed to load ACTUS configuration:', error);
         }
     }
 
@@ -33,51 +71,200 @@ class RiskComponent {
         
         try {
             container.innerHTML = `
-                <form id="risk-form" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Risk Model Type</label>
-                        <select id="risk-model-select" name="riskModel" class="form-input">
-                            <option value="Advanced Risk Model">Advanced Risk Model</option>
-                            <option value="Basel III Compliance">Basel III Compliance</option>
-                            <option value="Stablecoin Proof of Reserves">Stablecoin Proof of Reserves</option>
-                        </select>
-                        <div class="text-xs text-gray-500 mt-1">Select the risk assessment model for verification</div>
+                <!-- Risk & Liquidity Tab Navigation -->
+                <div class="mb-6">
+                    <div class="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                        <button class="risk-tab-btn flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors active" 
+                                data-risk-tab="basel3">
+                            <i class="fas fa-university mr-2"></i>Basel III Compliance
+                        </button>
+                        <button class="risk-tab-btn flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors" 
+                                data-risk-tab="stablecoin">
+                            <i class="fas fa-coins mr-2"></i>Stablecoin
+                        </button>
+                        <button class="risk-tab-btn flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors" 
+                                data-risk-tab="advanced">
+                            <i class="fas fa-chart-area mr-2"></i>Advanced
+                        </button>
                     </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Risk Threshold</label>
-                        <input type="number" id="risk-threshold" name="threshold" class="form-input" 
-                               placeholder="Enter threshold value" min="0" step="0.01" value="1.00">
-                        <div class="text-xs text-gray-500 mt-1">Risk threshold value (supports decimal places)</div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium mb-2">ACTUS Server URL</label>
-                        <input type="url" id="actus-url" name="actusUrl" class="form-input" 
-                               placeholder="Enter ACTUS server URL" value="${this.getDefaultActusUrl()}">
-                        <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint for risk calculations</div>
-                    </div>
-                    
-                    <!-- Blockchain State Tracking Option -->
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h4 class="text-sm font-medium text-gray-900 mb-1">Blockchain State Tracking</h4>
-                                <p class="text-xs text-gray-600">Show before/after blockchain state changes</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="risk-state-tracking-toggle" class="sr-only" ${this.showStateChanges ? 'checked' : ''}>
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
+                </div>
+
+                <!-- Basel III Compliance Tab -->
+                <div id="basel3-risk-tab" class="risk-tab-content">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-university text-blue-600 text-lg mr-3"></i>
+                            <h3 class="text-lg font-semibold text-blue-800">Basel III Compliance Verification</h3>
                         </div>
+                        <p class="text-blue-700 text-sm">
+                            Verify compliance with Basel III regulatory requirements for capital adequacy, stress testing, and market liquidity risk.
+                        </p>
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary w-full">
-                        <i class="fas fa-chart-line mr-2"></i>Generate Risk & Liquidity ZK Proof
-                    </button>
-                </form>
+
+                    <form id="basel3-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>Basel III Configuration File</strong>
+                            </label>
+                            <select id="basel3-config-select" class="form-input">
+                                <option value="">Select Basel III configuration file...</option>
+                            </select>
+                            <div class="text-xs text-gray-500 mt-1">Configuration files from the Basel III CONFIG directory</div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <strong>LCR Threshold</strong>
+                                </label>
+                                <input type="number" id="basel3-lcr-threshold" class="form-input" 
+                                       placeholder="Enter LCR threshold" min="0" step="0.01" value="100">
+                                <div class="text-xs text-gray-500 mt-1">Liquidity Coverage Ratio threshold</div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <strong>NSFR Threshold</strong>
+                                </label>
+                                <input type="number" id="basel3-nsfr-threshold" class="form-input" 
+                                       placeholder="Enter NSFR threshold" min="0" step="0.01" value="100">
+                                <div class="text-xs text-gray-500 mt-1">Net Stable Funding Ratio threshold</div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>ACTUS Server URL</strong>
+                            </label>
+                            <input type="url" id="basel3-actus-url" class="form-input bg-gray-50" 
+                                   value="${this.getDefaultActusUrl()}" readonly>
+                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint (configured)</div>
+                        </div>
+                        
+                        <!-- Blockchain State Tracking Option -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-900 mb-1">Blockchain State Tracking</h4>
+                                    <p class="text-xs text-gray-600">Show before/after blockchain state changes</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="basel3-state-tracking-toggle" class="sr-only">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-full">
+                            <i class="fas fa-university mr-2"></i>Generate Basel III Compliance ZK Proof
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Stablecoin Tab -->
+                <div id="stablecoin-risk-tab" class="risk-tab-content hidden">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-coins text-green-600 text-lg mr-3"></i>
+                            <h3 class="text-lg font-semibold text-green-800">Stablecoin Proof of Reserves</h3>
+                        </div>
+                        <p class="text-green-700 text-sm">
+                            Verify stablecoin reserves and backing collateral through zero-knowledge proofs.
+                        </p>
+                    </div>
+
+                    <form id="stablecoin-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>Stablecoin Type</strong>
+                            </label>
+                            <select id="stablecoin-type-select" class="form-input">
+                                <option value="USDC">USD Coin (USDC)</option>
+                                <option value="USDT">Tether (USDT)</option>
+                                <option value="DAI">MakerDAO (DAI)</option>
+                                <option value="BUSD">Binance USD (BUSD)</option>
+                                <option value="CUSTOM">Custom Stablecoin</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>Reserve Threshold</strong>
+                            </label>
+                            <input type="number" id="stablecoin-threshold" class="form-input" 
+                                   placeholder="Enter reserve threshold" min="0" step="0.01" value="1.00">
+                            <div class="text-xs text-gray-500 mt-1">Minimum collateralization ratio (e.g., 1.00 = 100%)</div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>ACTUS Server URL</strong>
+                            </label>
+                            <input type="url" id="stablecoin-actus-url" class="form-input" 
+                                   placeholder="Enter ACTUS server URL" value="${this.getDefaultActusUrl()}">
+                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint for reserve calculations</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-full">
+                            <i class="fas fa-coins mr-2"></i>Generate Stablecoin Proof of Reserves ZK Proof
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Advanced Tab -->
+                <div id="advanced-risk-tab" class="risk-tab-content hidden">
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-chart-area text-purple-600 text-lg mr-3"></i>
+                            <h3 class="text-lg font-semibold text-purple-800">Advanced Risk Model</h3>
+                        </div>
+                        <p class="text-purple-700 text-sm">
+                            Advanced risk assessment models with custom parameters and sophisticated analytics.
+                        </p>
+                    </div>
+
+                    <form id="advanced-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>Risk Model Type</strong>
+                            </label>
+                            <select id="advanced-model-select" class="form-input">
+                                <option value="VaR">Value at Risk (VaR)</option>
+                                <option value="CVaR">Conditional Value at Risk (CVaR)</option>
+                                <option value="ES">Expected Shortfall (ES)</option>
+                                <option value="Monte_Carlo">Monte Carlo Simulation</option>
+                                <option value="Black_Scholes">Black-Scholes Model</option>
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Risk Threshold</label>
+                                <input type="number" id="advanced-threshold" class="form-input" 
+                                       placeholder="0.05" min="0" step="0.001" value="0.05">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Confidence Level</label>
+                                <input type="number" id="advanced-confidence" class="form-input" 
+                                       placeholder="0.95" min="0.01" max="0.99" step="0.01" value="0.95">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>ACTUS Server URL</strong>
+                            </label>
+                            <input type="url" id="advanced-actus-url" class="form-input" 
+                                   placeholder="Enter ACTUS server URL" value="${this.getDefaultActusUrl()}">
+                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint for advanced calculations</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-full">
+                            <i class="fas fa-chart-area mr-2"></i>Generate Advanced Risk Model ZK Proof
+                        </button>
+                    </form>
+                </div>
                 
-                <!-- Blockchain State Display Section -->
+                <!-- Blockchain State Display Section (shared across all tabs) -->
                 <div id="risk-blockchain-state-section" class="mt-6 hidden">
                     <div class="bg-white border border-gray-200 rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-4 flex items-center">
@@ -150,118 +337,287 @@ class RiskComponent {
     }
 
     setupEventListeners() {
-        // State tracking toggle
-        document.getElementById('risk-state-tracking-toggle').addEventListener('change', (e) => {
-            this.showStateChanges = e.target.checked;
-            this.toggleStateSection();
+        // Risk tab navigation
+        document.querySelectorAll('.risk-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.riskTab || e.target.closest('.risk-tab-btn').dataset.riskTab;
+                this.switchRiskTab(tabName);
+            });
+        });
+
+        // Basel III form submission
+        const basel3Form = document.getElementById('basel3-form');
+        if (basel3Form) {
+            basel3Form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.executeBasel3Verification();
+            });
+        }
+
+        // Stablecoin form submission
+        const stablecoinForm = document.getElementById('stablecoin-form');
+        if (stablecoinForm) {
+            stablecoinForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.executeStablecoinVerification();
+            });
+        }
+
+        // Advanced form submission
+        const advancedForm = document.getElementById('advanced-form');
+        if (advancedForm) {
+            advancedForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.executeAdvancedVerification();
+            });
+        }
+
+        // State tracking toggle for Basel III
+        const basel3StateToggle = document.getElementById('basel3-state-tracking-toggle');
+        if (basel3StateToggle) {
+            basel3StateToggle.addEventListener('change', (e) => {
+                this.showStateChanges = e.target.checked;
+                this.toggleStateSection();
+            });
+        }
+    }
+
+    switchRiskTab(tabName) {
+        console.log(`🔄 Switching to risk tab: ${tabName}`);
+        
+        // Update tab buttons
+        document.querySelectorAll('.risk-tab-btn').forEach(btn => {
+            btn.classList.remove('active', 'bg-blue-600', 'text-white');
+            btn.classList.add('text-gray-600', 'hover:text-gray-800');
         });
         
-        // Form submission
-        document.getElementById('risk-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const riskModel = document.getElementById('risk-model-select').value;
-            const threshold = document.getElementById('risk-threshold').value;
-            const actusUrl = document.getElementById('actus-url').value;
-            
-            // Validate required fields
-            if (!riskModel) {
-                if (window.app && window.app.showNotification) {
-                    window.app.showNotification('Missing Information', 'Please select a risk model', 'error');
-                }
-                return;
-            }
-            
-            if (!threshold) {
-                if (window.app && window.app.showNotification) {
-                    window.app.showNotification('Missing Information', 'Please enter a threshold value', 'error');
-                }
-                return;
-            }
-            
-            if (!actusUrl) {
-                if (window.app && window.app.showNotification) {
-                    window.app.showNotification('Missing Information', 'Please enter ACTUS URL', 'error');
-                }
-                return;
-            }
-            
-            // Validate threshold is a positive number
-            const thresholdValue = parseFloat(threshold);
-            if (isNaN(thresholdValue) || thresholdValue < 0) {
-                if (window.app && window.app.showNotification) {
-                    window.app.showNotification('Invalid Threshold', 'Please enter a valid positive number for threshold', 'error');
-                }
-                return;
-            }
-            
-            // Map risk model to script name
-            const scriptMapping = this.getScriptMapping(riskModel);
-            
-            const parameters = {
-                riskModel: riskModel,
-                scriptName: scriptMapping,
-                threshold: thresholdValue,
-                actusUrl: actusUrl
-            };
-            
-            if (this.showStateChanges) {
-                await this.executeWithStateTracking(parameters);
-            } else {
-                await this.executeRiskVerification(parameters);
-            }
-        });
-    }
-    
-    getScriptMapping(riskModel) {
-        const mappings = {
-            'Advanced Risk Model': 'RiskLiquidityACTUSVerifierTest_adv_zk_WithSign.js',
-            'Basel III Compliance': 'RiskLiquidityACTUSVerifierTest_basel3_Withsign.js',
-            'Stablecoin Proof of Reserves': 'StablecoinProofOfReservesRiskVerificationTestWithSign.js'
-        };
+        const targetBtn = document.querySelector(`[data-risk-tab="${tabName}"]`);
+        if (targetBtn) {
+            targetBtn.classList.remove('text-gray-600', 'hover:text-gray-800');
+            targetBtn.classList.add('active', 'bg-blue-600', 'text-white');
+        }
         
-        return mappings[riskModel] || mappings['Advanced Risk Model'];
+        // Update tab content
+        document.querySelectorAll('.risk-tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        
+        const targetContent = document.getElementById(`${tabName}-risk-tab`);
+        if (targetContent) {
+            targetContent.classList.remove('hidden');
+        }
+        
+        this.currentRiskTab = tabName;
+        console.log(`✅ Risk tab switched to: ${tabName}`);
     }
-    
-    async executeRiskVerification(parameters) {
+
+    async populateBasel3ConfigFiles() {
         try {
-            console.log('Executing risk verification with parameters:', parameters);
+            console.log('🔄 Loading Basel III config files...');
             
-            // Map risk model to correct tool name from zkPretClient
-            let toolName;
-            switch (parameters.riskModel) {
-                case 'Advanced Risk Model':
-                    toolName = 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk';
-                    break;
-                case 'Basel III Compliance':
-                    toolName = 'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign';
-                    break;
-                case 'Stablecoin Proof of Reserves':
-                    toolName = 'get-StablecoinProofOfReservesRisk-verification-with-sign';
-                    break;
-                default:
-                    toolName = 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk';
+            const response = await fetch('/api/v1/basel3-config-files');
+            if (response.ok) {
+                const data = await response.json();
+                
+                const configSelect = document.getElementById('basel3-config-select');
+                if (configSelect) {
+                    configSelect.innerHTML = '<option value="">Select Basel III configuration file...</option>';
+                    data.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.textContent = file;
+                        
+                        // Default to basel3-VALID-1.json if available
+                        if (file === 'basel3-VALID-1.json') {
+                            option.selected = true;
+                        }
+                        
+                        configSelect.appendChild(option);
+                    });
+                    console.log(`✅ Loaded ${data.files.length} Basel III config files`);
+                    
+                    // Log which file was selected as default
+                    const selectedFile = configSelect.value;
+                    if (selectedFile) {
+                        console.log(`🎯 Default Basel III config file selected: ${selectedFile}`);
+                    }
+                }
+            } else {
+                console.log('⚠️ Failed to load Basel III config files:', await response.text());
+                this.showNotification('Config Loading Error', 'Failed to load Basel III configuration files', 'error');
             }
-            
-            // Prepare parameters for the tool (threshold and actusUrl)
-            const toolParameters = {
-                threshold: parameters.threshold,
-                actusUrl: parameters.actusUrl
-            };
+        } catch (error) {
+            console.error('Failed to load Basel III config files:', error);
+            this.showNotification('Config Loading Error', 'Failed to load Basel III configuration files', 'error');
+        }
+    }
+
+    async executeBasel3Verification() {
+        const configFile = document.getElementById('basel3-config-select')?.value;
+        const lcrThreshold = document.getElementById('basel3-lcr-threshold')?.value;
+        const nsfrThreshold = document.getElementById('basel3-nsfr-threshold')?.value;
+        const actusUrl = document.getElementById('basel3-actus-url')?.value;
+        
+        // Validate required fields
+        if (!configFile) {
+            this.showNotification('Missing Information', 'Please select a Basel III configuration file', 'error');
+            return;
+        }
+        
+        if (!lcrThreshold) {
+            this.showNotification('Missing Information', 'Please enter an LCR threshold value', 'error');
+            return;
+        }
+        
+        if (!nsfrThreshold) {
+            this.showNotification('Missing Information', 'Please enter an NSFR threshold value', 'error');
+            return;
+        }
+        
+        if (!actusUrl) {
+            this.showNotification('Missing Information', 'ACTUS URL is required', 'error');
+            return;
+        }
+        
+        // Validate thresholds are positive numbers
+        const lcrThresholdValue = parseFloat(lcrThreshold);
+        if (isNaN(lcrThresholdValue) || lcrThresholdValue < 0) {
+            this.showNotification('Invalid LCR Threshold', 'Please enter a valid positive number for LCR threshold', 'error');
+            return;
+        }
+        
+        const nsfrThresholdValue = parseFloat(nsfrThreshold);
+        if (isNaN(nsfrThresholdValue) || nsfrThresholdValue < 0) {
+            this.showNotification('Invalid NSFR Threshold', 'Please enter a valid positive number for NSFR threshold', 'error');
+            return;
+        }
+
+        // Construct the file path for the command pattern
+        const relativeConfigPath = `src/data/RISK/Basel3/CONFIG/${configFile}`;
+        
+        const parameters = {
+            command: 'node ./build/tests/with-sign/RiskLiquidityBasel3OptimMerkleVerificationTestWithSign.js',
+            lcrThreshold: lcrThresholdValue,
+            nsfrThreshold: nsfrThresholdValue,
+            actusUrl: actusUrl,
+            configFilePath: relativeConfigPath
+        };
+
+        // Use the standard tool execution pattern like other components
+        const toolName = 'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign';
+
+        if (this.showStateChanges) {
+            await this.executeWithStateTracking(toolName, parameters);
+        } else {
+            await this.executeRiskVerification(toolName, parameters);
+        }
+    }
+
+    async executeStablecoinVerification() {
+        const stablecoinType = document.getElementById('stablecoin-type-select')?.value;
+        const threshold = document.getElementById('stablecoin-threshold')?.value;
+        const actusUrl = document.getElementById('stablecoin-actus-url')?.value;
+        
+        // Validate required fields
+        if (!stablecoinType) {
+            this.showNotification('Missing Information', 'Please select a stablecoin type', 'error');
+            return;
+        }
+        
+        if (!threshold) {
+            this.showNotification('Missing Information', 'Please enter a reserve threshold', 'error');
+            return;
+        }
+        
+        if (!actusUrl) {
+            this.showNotification('Missing Information', 'Please enter ACTUS URL', 'error');
+            return;
+        }
+        
+        // Validate threshold is a positive number
+        const thresholdValue = parseFloat(threshold);
+        if (isNaN(thresholdValue) || thresholdValue < 0) {
+            this.showNotification('Invalid Threshold', 'Please enter a valid positive number for threshold', 'error');
+            return;
+        }
+
+        const parameters = {
+            stablecoinType: stablecoinType,
+            threshold: thresholdValue,
+            actusUrl: actusUrl,
+            typeOfNet: 'TESTNET'
+        };
+
+        const toolName = 'get-StablecoinProofOfReservesRisk-verification-with-sign';
+        await this.executeRiskVerification(toolName, parameters);
+    }
+
+    async executeAdvancedVerification() {
+        const modelType = document.getElementById('advanced-model-select')?.value;
+        const threshold = document.getElementById('advanced-threshold')?.value;
+        const confidence = document.getElementById('advanced-confidence')?.value;
+        const actusUrl = document.getElementById('advanced-actus-url')?.value;
+        
+        // Validate required fields
+        if (!modelType) {
+            this.showNotification('Missing Information', 'Please select a risk model type', 'error');
+            return;
+        }
+        
+        if (!threshold) {
+            this.showNotification('Missing Information', 'Please enter a threshold value', 'error');
+            return;
+        }
+        
+        if (!confidence) {
+            this.showNotification('Missing Information', 'Please enter a confidence level', 'error');
+            return;
+        }
+        
+        if (!actusUrl) {
+            this.showNotification('Missing Information', 'Please enter ACTUS URL', 'error');
+            return;
+        }
+        
+        // Validate threshold is a positive number
+        const thresholdValue = parseFloat(threshold);
+        if (isNaN(thresholdValue) || thresholdValue < 0) {
+            this.showNotification('Invalid Threshold', 'Please enter a valid positive number for threshold', 'error');
+            return;
+        }
+        
+        // Validate confidence level
+        const confidenceValue = parseFloat(confidence);
+        if (isNaN(confidenceValue) || confidenceValue <= 0 || confidenceValue >= 1) {
+            this.showNotification('Invalid Confidence', 'Please enter a confidence level between 0.01 and 0.99', 'error');
+            return;
+        }
+
+        const parameters = {
+            modelType: modelType,
+            threshold: thresholdValue,
+            confidence: confidenceValue,
+            actusUrl: actusUrl,
+            typeOfNet: 'TESTNET'
+        };
+
+        const toolName = 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk';
+        await this.executeRiskVerification(toolName, parameters);
+    }
+
+    async executeRiskVerification(toolName, parameters) {
+        try {
+            console.log('Executing risk verification with parameters:', { toolName, parameters });
             
             if (window.app && window.app.executeTool) {
-                await window.app.executeTool(toolName, toolParameters);
+                await window.app.executeTool(toolName, parameters);
             } else {
                 console.error('App or executeTool method not available');
-                if (window.app && window.app.showNotification) {
-                    window.app.showNotification('Error', 'Application not properly initialized', 'error');
-                }
+                this.showNotification('Error', 'Application not properly initialized', 'error');
             }
         } catch (error) {
             console.error('Error executing risk verification:', error);
-            if (window.app && window.app.showNotification) {
-                window.app.showNotification('Execution Error', error.message, 'error');
-            }
+            this.showNotification('Execution Error', error.message, 'error');
         }
     }
     
@@ -274,35 +630,13 @@ class RiskComponent {
         }
     }
     
-    async executeWithStateTracking(parameters) {
+    async executeWithStateTracking(toolName, parameters) {
         try {
             // Show state section and loading
             document.getElementById('risk-blockchain-state-section').classList.remove('hidden');
             document.getElementById('risk-state-loading').classList.remove('hidden');
             document.getElementById('risk-state-comparison').classList.add('hidden');
             document.getElementById('risk-no-changes').classList.add('hidden');
-            
-            // Map risk model to correct tool name from zkPretClient
-            let toolName;
-            switch (parameters.riskModel) {
-                case 'Advanced Risk Model':
-                    toolName = 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk';
-                    break;
-                case 'Basel III Compliance':
-                    toolName = 'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign';
-                    break;
-                case 'Stablecoin Proof of Reserves':
-                    toolName = 'get-StablecoinProofOfReservesRisk-verification-with-sign';
-                    break;
-                default:
-                    toolName = 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk';
-            }
-            
-            // Prepare parameters for the tool (threshold and actusUrl)
-            const toolParameters = {
-                threshold: parameters.threshold,
-                actusUrl: parameters.actusUrl
-            };
             
             // Execute tool with state tracking
             const response = await fetch('/api/v1/tools/execute-with-state', {
@@ -312,7 +646,7 @@ class RiskComponent {
                 },
                 body: JSON.stringify({
                     toolName: toolName,
-                    parameters: toolParameters
+                    parameters: parameters
                 })
             });
             
@@ -351,10 +685,7 @@ class RiskComponent {
                 </div>
             `;
             
-            // Still show the execution result if available
-            if (window.app && window.app.showNotification) {
-                window.app.showNotification('State Tracking Error', 'Failed to retrieve blockchain state changes', 'error');
-            }
+            this.showNotification('State Tracking Error', 'Failed to retrieve blockchain state changes', 'error');
         }
     }
     
@@ -434,8 +765,16 @@ class RiskComponent {
     }
     
     getDefaultActusUrl() {
-        // Default URL from .env configuration
-        return 'http://98.84.165.146:8083/eventsBatch';
+        // Return the instance variable that was loaded from server environment
+        return this.actusUrl || 'http://98.84.165.146:8083/eventsBatch';
+    }
+
+    showNotification(title, message, type) {
+        if (window.app && window.app.showNotification) {
+            window.app.showNotification(title, message, type);
+        } else {
+            console.log(`${type.toUpperCase()}: ${title} - ${message}`);
+        }
     }
 }
 

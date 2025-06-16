@@ -418,6 +418,69 @@ app.get('/api/v1/process-files/:processType/:fileType', async (req, res) => {
         });
     }
 });
+// ACTUS Configuration API - Get ACTUS server URL from environment
+app.get('/api/v1/actus-config', async (_req, res) => {
+    try {
+        const actusUrl = process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+        res.json({
+            actusUrl: actusUrl,
+            source: 'environment'
+        });
+    }
+    catch (error) {
+        logger.error('Failed to get ACTUS configuration', {
+            error: error instanceof Error ? error.message : String(error)
+        });
+        res.status(500).json({
+            error: 'Failed to get ACTUS configuration',
+            details: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+// Basel III Config Files API - Get available Basel III configuration files for risk verification
+app.get('/api/v1/basel3-config-files', async (_req, res) => {
+    try {
+        const basePath = process.env.ZK_PRET_STDIO_PATH;
+        const relativePath = process.env.ZK_PRET_DATA_RISK_BASEL3_CONFIG;
+        if (!relativePath || !basePath) {
+            return res.status(400).json({
+                error: 'Basel III config path not configured',
+                relativePath: !!relativePath,
+                basePath: !!basePath
+            });
+        }
+        const fullPath = path.join(basePath, relativePath);
+        logger.info('Reading Basel III config files', {
+            relativePath,
+            fullPath
+        });
+        // Check if directory exists
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({
+                error: 'Basel III config directory not found',
+                path: fullPath
+            });
+        }
+        const files = fs.readdirSync(fullPath)
+            .filter(f => f.endsWith('.json') || f.endsWith('.xml') || f.endsWith('.config'))
+            .sort(); // Sort alphabetically
+        res.json({
+            files,
+            path: relativePath,
+            configType: 'Basel3-Config',
+            count: files.length
+        });
+    }
+    catch (error) {
+        logger.error('Failed to read Basel III config files', {
+            error: error instanceof Error ? error.message : String(error)
+        });
+        res.status(500).json({
+            error: 'Failed to read Basel III config directory',
+            details: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
 // Bill of Lading Files API - Get available bill of lading files for data integrity verification
 app.get('/api/v1/bill-of-lading-files', async (_req, res) => {
     try {
