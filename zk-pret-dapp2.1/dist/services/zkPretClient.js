@@ -121,6 +121,7 @@ class ZKPretClient {
             'get-RiskLiquidityACTUS-Verifier-Test_adv_zk',
             'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign',
             'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign',
+            'get-RiskLiquidityAdvancedOptimMerkle-verification-with-sign',
             'get-StablecoinProofOfReservesRisk-verification-with-sign',
             // Composed proof tools
             'execute-composed-proof-full-kyc',
@@ -190,6 +191,7 @@ class ZKPretClient {
             'get-RiskLiquidityACTUS-Verifier-Test_adv_zk': 'RiskLiquidityACTUSVerifierTest_adv_zk_WithSign.js',
             'get-RiskLiquidityACTUS-Verifier-Test_Basel3_Withsign': 'RiskLiquidityACTUSVerifierTest_basel3_Withsign.js',
             'get-RiskLiquidityBasel3Optim-Merkle-verification-with-sign': 'RiskLiquidityBasel3OptimMerkleVerificationTestWithSign.js', // FIXED: Add Basel III mapping
+            'get-RiskLiquidityAdvancedOptimMerkle-verification-with-sign': 'RiskLiquidityAdvancedOptimMerkleVerificationTestWithSign.js', // NEW: Risk Advanced mapping
             'get-StablecoinProofOfReservesRisk-verification-with-sign': 'StablecoinProofOfReservesRiskVerificationTestWithSign.js',
             // Composed proof tools - using optimized recursive versions
             'execute-composed-proof-full-kyc': 'ComposedRecursiveOptim3LevelVerificationTestWithSign.js', // FIXED: Use actual optimized version
@@ -612,6 +614,29 @@ class ZKPretClient {
                     args.push(defaultConfigPath);
                     console.log(`Added Basel III arg 4 (default config): "${defaultConfigPath}"`);
                 }
+                break;
+            case 'get-RiskLiquidityAdvancedOptimMerkle-verification-with-sign':
+                // Risk Advanced verification expects: [liquidityThreshold, actusUrl, configFilePath, executionMode]
+                const liquidityThreshold = parameters.liquidityThreshold || 100;
+                const advancedActusUrl = parameters.actusUrl || process.env.ACTUS_SERVER_URL || 'http://98.84.165.146:8083/eventsBatch';
+                const advancedConfigFilePath = parameters.configFilePath;
+                const executionMode = parameters.executionMode || 'ultra_strict';
+                args.push(String(liquidityThreshold));
+                console.log(`Added Risk Advanced arg 1 (liquidity threshold): "${liquidityThreshold}"`);
+                args.push(String(advancedActusUrl));
+                console.log(`Added Risk Advanced arg 2 (ACTUS URL): "${advancedActusUrl}"`);
+                if (advancedConfigFilePath) {
+                    args.push(String(advancedConfigFilePath));
+                    console.log(`Added Risk Advanced arg 3 (config file path): "${advancedConfigFilePath}"`);
+                }
+                else {
+                    console.log('⚠️  No config file path found for Risk Advanced verification');
+                    const defaultAdvancedConfigPath = 'src/data/RISK/Advanced/CONFIG/Advanced-VALID-1.json';
+                    args.push(defaultAdvancedConfigPath);
+                    console.log(`Added Risk Advanced arg 3 (default config): "${defaultAdvancedConfigPath}"`);
+                }
+                args.push(String(executionMode));
+                console.log(`Added Risk Advanced arg 4 (execution mode): "${executionMode}"`);
                 break;
             default:
                 // For other verification types, use the original logic as fallback

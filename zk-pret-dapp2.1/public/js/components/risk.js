@@ -32,6 +32,10 @@ class RiskComponent {
         
         // Load Basel III config files
         await this.populateBasel3ConfigFiles();
+        
+        // Load Risk Advanced config files and execution settings
+        await this.populateAdvancedConfigFiles();
+        await this.populateAdvancedExecutionSettings();
     }
 
     async loadActusConfiguration() {
@@ -225,41 +229,44 @@ class RiskComponent {
                     <form id="advanced-form" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <strong>Risk Model Type</strong>
+                                <strong>ZK PRET Server Location</strong>
                             </label>
-                            <select id="advanced-model-select" class="form-input">
-                                <option value="VaR">Value at Risk (VaR)</option>
-                                <option value="CVaR">Conditional Value at Risk (CVaR)</option>
-                                <option value="ES">Expected Shortfall (ES)</option>
-                                <option value="Monte_Carlo">Monte Carlo Simulation</option>
-                                <option value="Black_Scholes">Black-Scholes Model</option>
+                            <select id="advanced-config-select" class="form-input">
+                                <option value="">Select advanced configuration file...</option>
                             </select>
-                        </div>
-                        
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Risk Threshold</label>
-                                <input type="number" id="advanced-threshold" class="form-input" 
-                                       placeholder="0.05" min="0" step="0.001" value="0.05">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Confidence Level</label>
-                                <input type="number" id="advanced-confidence" class="form-input" 
-                                       placeholder="0.95" min="0.01" max="0.99" step="0.01" value="0.95">
-                            </div>
+                            <div class="text-xs text-gray-500 mt-1">Configuration files from the Risk Advanced CONFIG directory</div>
                         </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <strong>ACTUS Server URL</strong>
+                                <strong>Liquidity THRESHOLD</strong>
                             </label>
-                            <input type="url" id="advanced-actus-url" class="form-input" 
-                                   placeholder="Enter ACTUS server URL" value="${this.getDefaultActusUrl()}">
-                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint for advanced calculations</div>
+                            <input type="number" id="advanced-liquidity-threshold" class="form-input" 
+                                   placeholder="Enter liquidity threshold" min="0" step="1" value="100">
+                            <div class="text-xs text-gray-500 mt-1">Liquidity threshold value (default: 100)</div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>ACTUS-URL-SERVER</strong>
+                            </label>
+                            <input type="url" id="advanced-actus-url" class="form-input bg-gray-50" 
+                                   value="${this.getDefaultActusUrl()}" readonly>
+                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint (configured)</div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>Execution Settings</strong>
+                            </label>
+                            <select id="advanced-execution-settings" class="form-input">
+                                <option value="">Select execution mode...</option>
+                            </select>
+                            <div class="text-xs text-gray-500 mt-1">Execution mode based on execution-settings.json</div>
                         </div>
                         
                         <button type="submit" class="btn btn-primary w-full">
-                            <i class="fas fa-chart-area mr-2"></i>Generate Advanced Risk Model ZK Proof
+                            <i class="fas fa-chart-area mr-2"></i>Generate Risk Advanced ZK Proof
                         </button>
                     </form>
                 </div>
@@ -452,6 +459,88 @@ class RiskComponent {
         }
     }
 
+    async populateAdvancedConfigFiles() {
+        try {
+            console.log('🔄 Loading Risk Advanced config files...');
+            
+            const response = await fetch('/api/v1/risk-advanced-config-files');
+            if (response.ok) {
+                const data = await response.json();
+                
+                const configSelect = document.getElementById('advanced-config-select');
+                if (configSelect) {
+                    configSelect.innerHTML = '<option value="">Select advanced configuration file...</option>';
+                    data.files.forEach(file => {
+                        const option = document.createElement('option');
+                        option.value = file;
+                        option.textContent = file;
+                        
+                        // Default to Advanced-VALID-1.json if available
+                        if (file === 'Advanced-VALID-1.json') {
+                            option.selected = true;
+                        }
+                        
+                        configSelect.appendChild(option);
+                    });
+                    console.log(`✅ Loaded ${data.files.length} Risk Advanced config files`);
+                    
+                    // Log which file was selected as default
+                    const selectedFile = configSelect.value;
+                    if (selectedFile) {
+                        console.log(`🎯 Default Risk Advanced config file selected: ${selectedFile}`);
+                    }
+                }
+            } else {
+                console.log('⚠️ Failed to load Risk Advanced config files:', await response.text());
+                this.showNotification('Config Loading Error', 'Failed to load Risk Advanced configuration files', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to load Risk Advanced config files:', error);
+            this.showNotification('Config Loading Error', 'Failed to load Risk Advanced configuration files', 'error');
+        }
+    }
+
+    async populateAdvancedExecutionSettings() {
+        try {
+            console.log('🔄 Loading Risk Advanced execution settings...');
+            
+            const response = await fetch('/api/v1/risk-advanced-execution-settings');
+            if (response.ok) {
+                const data = await response.json();
+                
+                const settingsSelect = document.getElementById('advanced-execution-settings');
+                if (settingsSelect) {
+                    settingsSelect.innerHTML = '<option value="">Select execution mode...</option>';
+                    data.executionPaths.forEach(path => {
+                        const option = document.createElement('option');
+                        option.value = path.id;
+                        option.textContent = `${path.name} - ${path.description}`;
+                        
+                        // Default to ultra_strict if available
+                        if (path.id === 'ultra_strict') {
+                            option.selected = true;
+                        }
+                        
+                        settingsSelect.appendChild(option);
+                    });
+                    console.log(`✅ Loaded ${data.executionPaths.length} execution paths`);
+                    
+                    // Log which execution mode was selected as default
+                    const selectedMode = settingsSelect.value;
+                    if (selectedMode) {
+                        console.log(`🎯 Default execution mode selected: ${selectedMode}`);
+                    }
+                }
+            } else {
+                console.log('⚠️ Failed to load Risk Advanced execution settings:', await response.text());
+                this.showNotification('Settings Loading Error', 'Failed to load execution settings', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to load Risk Advanced execution settings:', error);
+            this.showNotification('Settings Loading Error', 'Failed to load execution settings', 'error');
+        }
+    }
+
     async executeBasel3Verification() {
         const configFile = document.getElementById('basel3-config-select')?.value;
         const lcrThreshold = document.getElementById('basel3-lcr-threshold')?.value;
@@ -553,55 +642,52 @@ class RiskComponent {
     }
 
     async executeAdvancedVerification() {
-        const modelType = document.getElementById('advanced-model-select')?.value;
-        const threshold = document.getElementById('advanced-threshold')?.value;
-        const confidence = document.getElementById('advanced-confidence')?.value;
+        const configFile = document.getElementById('advanced-config-select')?.value;
+        const liquidityThreshold = document.getElementById('advanced-liquidity-threshold')?.value;
         const actusUrl = document.getElementById('advanced-actus-url')?.value;
+        const executionMode = document.getElementById('advanced-execution-settings')?.value;
         
         // Validate required fields
-        if (!modelType) {
-            this.showNotification('Missing Information', 'Please select a risk model type', 'error');
+        if (!configFile) {
+            this.showNotification('Missing Information', 'Please select an advanced configuration file', 'error');
             return;
         }
         
-        if (!threshold) {
-            this.showNotification('Missing Information', 'Please enter a threshold value', 'error');
-            return;
-        }
-        
-        if (!confidence) {
-            this.showNotification('Missing Information', 'Please enter a confidence level', 'error');
+        if (!liquidityThreshold) {
+            this.showNotification('Missing Information', 'Please enter a liquidity threshold value', 'error');
             return;
         }
         
         if (!actusUrl) {
-            this.showNotification('Missing Information', 'Please enter ACTUS URL', 'error');
+            this.showNotification('Missing Information', 'ACTUS URL is required', 'error');
+            return;
+        }
+        
+        if (!executionMode) {
+            this.showNotification('Missing Information', 'Please select an execution mode', 'error');
             return;
         }
         
         // Validate threshold is a positive number
-        const thresholdValue = parseFloat(threshold);
+        const thresholdValue = parseFloat(liquidityThreshold);
         if (isNaN(thresholdValue) || thresholdValue < 0) {
-            this.showNotification('Invalid Threshold', 'Please enter a valid positive number for threshold', 'error');
-            return;
-        }
-        
-        // Validate confidence level
-        const confidenceValue = parseFloat(confidence);
-        if (isNaN(confidenceValue) || confidenceValue <= 0 || confidenceValue >= 1) {
-            this.showNotification('Invalid Confidence', 'Please enter a confidence level between 0.01 and 0.99', 'error');
+            this.showNotification('Invalid Threshold', 'Please enter a valid positive number for liquidity threshold', 'error');
             return;
         }
 
+        // Construct the file path for the command pattern
+        const relativeConfigPath = `src/data/RISK/Advanced/CONFIG/${configFile}`;
+        
         const parameters = {
-            modelType: modelType,
-            threshold: thresholdValue,
-            confidence: confidenceValue,
+            command: 'node ./build/tests/with-sign/RiskLiquidityAdvancedOptimMerkleVerificationTestWithSign.js',
+            liquidityThreshold: thresholdValue,
             actusUrl: actusUrl,
-            typeOfNet: 'TESTNET'
+            configFilePath: relativeConfigPath,
+            executionMode: executionMode
         };
 
-        const toolName = 'get-RiskLiquidityACTUS-Verifier-Test_adv_zk';
+        // Use the correct tool name that we just added to zkPretClient
+        const toolName = 'get-RiskLiquidityAdvancedOptimMerkle-verification-with-sign';
         await this.executeRiskVerification(toolName, parameters);
     }
 

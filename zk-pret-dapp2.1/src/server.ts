@@ -594,6 +594,116 @@ app.get('/api/v1/bill-of-lading-files', async (_req, res) => {
   }
 });
 
+// Risk Advanced Config Files API - Get available Advanced Risk configuration files
+app.get('/api/v1/risk-advanced-config-files', async (_req, res) => {
+  try {
+    const basePath = process.env.ZK_PRET_STDIO_PATH;
+    const relativePath = process.env.ZK_PRET_DATA_RISK_ADVANCED_CONFIG;
+    
+    if (!relativePath || !basePath) {
+      return res.status(400).json({ 
+        error: 'Risk Advanced config path not configured', 
+        relativePath: !!relativePath,
+        basePath: !!basePath 
+      });
+    }
+    
+    const fullPath = path.join(basePath, relativePath);
+    
+    logger.info('Reading Risk Advanced config files', {
+      relativePath,
+      fullPath
+    });
+    
+    // Check if directory exists
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ 
+        error: 'Risk Advanced config directory not found', 
+        path: fullPath 
+      });
+    }
+    
+    const files = fs.readdirSync(fullPath)
+      .filter(f => f.endsWith('.json') || f.endsWith('.xml') || f.endsWith('.config'))
+      .sort(); // Sort alphabetically
+    
+    res.json({ 
+      files, 
+      path: relativePath,
+      configType: 'Risk-Advanced-Config',
+      count: files.length
+    });
+    
+  } catch (error) {
+    logger.error('Failed to read Risk Advanced config files', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to read Risk Advanced config directory',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Risk Advanced Execution Settings API - Get execution settings from execution-settings.json
+app.get('/api/v1/risk-advanced-execution-settings', async (_req, res) => {
+  try {
+    const basePath = process.env.ZK_PRET_STDIO_PATH;
+    const settingsPath = './src/data/RISK/Advanced/SETTINGS/execution-settings.json';
+    
+    if (!basePath) {
+      return res.status(400).json({ 
+        error: 'ZK_PRET_STDIO_PATH not configured', 
+        basePath: !!basePath 
+      });
+    }
+    
+    const fullPath = path.join(basePath, settingsPath);
+    
+    logger.info('Reading Risk Advanced execution settings', {
+      settingsPath,
+      fullPath
+    });
+    
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ 
+        error: 'Risk Advanced execution settings file not found', 
+        path: fullPath 
+      });
+    }
+    
+    const settingsContent = fs.readFileSync(fullPath, 'utf8');
+    const settings = JSON.parse(settingsContent);
+    
+    // Extract execution paths for the dropdown
+    const executionPaths = Object.keys(settings.executionPaths || {}).map(key => ({
+      id: key,
+      name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      description: settings.executionPaths[key]?.description || '',
+      expectedOutcome: settings.executionPaths[key]?.expectedOutcome || ''
+    }));
+    
+    res.json({ 
+      executionPaths,
+      settingsMetadata: settings.executionSettings || {},
+      path: settingsPath,
+      count: executionPaths.length
+    });
+    
+  } catch (error) {
+    logger.error('Failed to read Risk Advanced execution settings', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to read Risk Advanced execution settings',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 const startServer = async () => {
   await zkPretClient.initialize();
   server.listen(ZK_PRET_WEB_APP_PORT, ZK_PRET_WEB_APP_HOST, () => {
