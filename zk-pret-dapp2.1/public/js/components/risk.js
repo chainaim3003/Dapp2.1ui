@@ -36,6 +36,10 @@ class RiskComponent {
         // Load Risk Advanced config files and execution settings
         await this.populateAdvancedConfigFiles();
         await this.populateAdvancedExecutionSettings();
+        
+        // Load Stablecoin jurisdictions and setup jurisdiction change handler
+        await this.populateStablecoinJurisdictions();
+        this.setupStablecoinJurisdictionHandler();
     }
 
     async loadActusConfiguration() {
@@ -169,47 +173,67 @@ class RiskComponent {
                     <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
                         <div class="flex items-center mb-3">
                             <i class="fas fa-coins text-green-600 text-lg mr-3"></i>
-                            <h3 class="text-lg font-semibold text-green-800">Stablecoin Proof of Reserves</h3>
+                            <h3 class="text-lg font-semibold text-green-800">Stablecoin Verification</h3>
                         </div>
                         <p class="text-green-700 text-sm">
-                            Verify stablecoin reserves and backing collateral through zero-knowledge proofs.
+                            Verify stablecoin reserves and regulatory compliance using jurisdiction-specific configurations.
                         </p>
                     </div>
 
                     <form id="stablecoin-form" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <strong>Stablecoin Type</strong>
+                                <strong>Jurisdiction</strong>
                             </label>
-                            <select id="stablecoin-type-select" class="form-input">
-                                <option value="USDC">USD Coin (USDC)</option>
-                                <option value="USDT">Tether (USDT)</option>
-                                <option value="DAI">MakerDAO (DAI)</option>
-                                <option value="BUSD">Binance USD (BUSD)</option>
-                                <option value="CUSTOM">Custom Stablecoin</option>
+                            <select id="stablecoin-jurisdiction-select" class="form-input">
+                                <option value="">Select jurisdiction...</option>
                             </select>
+                            <div class="text-xs text-gray-500 mt-1">Regulatory jurisdiction for stablecoin verification</div>
                         </div>
-                        
+
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <strong>Reserve Threshold</strong>
+                                <strong>Situation</strong>
                             </label>
-                            <input type="number" id="stablecoin-threshold" class="form-input" 
-                                   placeholder="Enter reserve threshold" min="0" step="0.01" value="1.00">
-                            <div class="text-xs text-gray-500 mt-1">Minimum collateralization ratio (e.g., 1.00 = 100%)</div>
+                            <select id="stablecoin-situation-select" class="form-input" disabled>
+                                <option value="">Select situation...</option>
+                            </select>
+                            <div class="text-xs text-gray-500 mt-1">Specific scenario configuration file</div>
                         </div>
-                        
+
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <strong>ACTUS Server URL</strong>
+                                <strong>Liquidity THRESHOLD</strong>
                             </label>
-                            <input type="url" id="stablecoin-actus-url" class="form-input" 
-                                   placeholder="Enter ACTUS server URL" value="${this.getDefaultActusUrl()}">
-                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint for reserve calculations</div>
+                            <input type="number" id="stablecoin-liquidity-threshold" class="form-input" 
+                                   value="100" min="0" step="1">
+                            <div class="text-xs text-gray-500 mt-1">Liquidity threshold value</div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>ACTUS-URL-SERVER</strong>
+                            </label>
+                            <input type="url" id="stablecoin-actus-url" class="form-input bg-gray-50" 
+                                   value="${this.getDefaultActusUrl()}" readonly>
+                            <div class="text-xs text-gray-500 mt-1">ACTUS framework server endpoint (configured)</div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <strong>Execution Mode</strong>
+                            </label>
+                            <select id="stablecoin-execution-mode" class="form-input">
+                                <option value="ultra_strict" selected>Ultra Strict</option>
+                                <option value="strict">Strict</option>
+                                <option value="standard">Standard</option>
+                                <option value="relaxed">Relaxed</option>
+                            </select>
+                            <div class="text-xs text-gray-500 mt-1">Verification strictness level</div>
                         </div>
                         
                         <button type="submit" class="btn btn-primary w-full">
-                            <i class="fas fa-coins mr-2"></i>Generate Stablecoin Proof of Reserves ZK Proof
+                            <i class="fas fa-coins mr-2"></i>Generate Stablecoin ZK Proof
                         </button>
                     </form>
                 </div>
@@ -541,6 +565,86 @@ class RiskComponent {
         }
     }
 
+    async populateStablecoinJurisdictions() {
+        try {
+            console.log('🔄 Loading Stablecoin jurisdictions...');
+            
+            const response = await fetch('/api/v1/stablecoin-jurisdictions');
+            if (response.ok) {
+                const data = await response.json();
+                
+                const jurisdictionSelect = document.getElementById('stablecoin-jurisdiction-select');
+                if (jurisdictionSelect) {
+                    jurisdictionSelect.innerHTML = '<option value="">Select jurisdiction...</option>';
+                    data.jurisdictions.forEach(jurisdiction => {
+                        const option = document.createElement('option');
+                        option.value = jurisdiction;
+                        option.textContent = jurisdiction;
+                        jurisdictionSelect.appendChild(option);
+                    });
+                    console.log(`✅ Loaded ${data.jurisdictions.length} stablecoin jurisdictions`);
+                }
+            } else {
+                console.log('⚠️ Failed to load stablecoin jurisdictions:', await response.text());
+                this.showNotification('Jurisdiction Loading Error', 'Failed to load stablecoin jurisdictions', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to load stablecoin jurisdictions:', error);
+            this.showNotification('Jurisdiction Loading Error', 'Failed to load stablecoin jurisdictions', 'error');
+        }
+    }
+
+    async populateStablecoinSituations(jurisdiction) {
+        try {
+            console.log(`🔄 Loading Stablecoin situations for ${jurisdiction}...`);
+            
+            const response = await fetch(`/api/v1/stablecoin-situations/${jurisdiction}`);
+            if (response.ok) {
+                const data = await response.json();
+                
+                const situationSelect = document.getElementById('stablecoin-situation-select');
+                if (situationSelect) {
+                    situationSelect.innerHTML = '<option value="">Select situation...</option>';
+                    situationSelect.disabled = false;
+                    
+                    data.situations.forEach(situation => {
+                        const option = document.createElement('option');
+                        option.value = situation;
+                        option.textContent = situation;
+                        situationSelect.appendChild(option);
+                    });
+                    console.log(`✅ Loaded ${data.situations.length} stablecoin situations for ${jurisdiction}`);
+                }
+            } else {
+                console.log(`⚠️ Failed to load stablecoin situations for ${jurisdiction}:`, await response.text());
+                this.showNotification('Situation Loading Error', `Failed to load situations for ${jurisdiction}`, 'error');
+            }
+        } catch (error) {
+            console.error(`Failed to load stablecoin situations for ${jurisdiction}:`, error);
+            this.showNotification('Situation Loading Error', `Failed to load situations for ${jurisdiction}`, 'error');
+        }
+    }
+
+    setupStablecoinJurisdictionHandler() {
+        const jurisdictionSelect = document.getElementById('stablecoin-jurisdiction-select');
+        if (jurisdictionSelect) {
+            jurisdictionSelect.addEventListener('change', async (e) => {
+                const jurisdiction = e.target.value;
+                const situationSelect = document.getElementById('stablecoin-situation-select');
+                
+                if (jurisdiction) {
+                    await this.populateStablecoinSituations(jurisdiction);
+                } else {
+                    // Clear situation dropdown if no jurisdiction selected
+                    if (situationSelect) {
+                        situationSelect.innerHTML = '<option value="">Select situation...</option>';
+                        situationSelect.disabled = true;
+                    }
+                }
+            });
+        }
+    }
+
     async executeBasel3Verification() {
         const configFile = document.getElementById('basel3-config-select')?.value;
         const lcrThreshold = document.getElementById('basel3-lcr-threshold')?.value;
@@ -603,40 +707,61 @@ class RiskComponent {
     }
 
     async executeStablecoinVerification() {
-        const stablecoinType = document.getElementById('stablecoin-type-select')?.value;
-        const threshold = document.getElementById('stablecoin-threshold')?.value;
+        const jurisdiction = document.getElementById('stablecoin-jurisdiction-select')?.value;
+        const situation = document.getElementById('stablecoin-situation-select')?.value;
+        const liquidityThreshold = document.getElementById('stablecoin-liquidity-threshold')?.value;
         const actusUrl = document.getElementById('stablecoin-actus-url')?.value;
+        const executionMode = document.getElementById('stablecoin-execution-mode')?.value;
         
         // Validate required fields
-        if (!stablecoinType) {
-            this.showNotification('Missing Information', 'Please select a stablecoin type', 'error');
+        if (!jurisdiction) {
+            this.showNotification('Missing Information', 'Please select a jurisdiction', 'error');
             return;
         }
         
-        if (!threshold) {
-            this.showNotification('Missing Information', 'Please enter a reserve threshold', 'error');
+        if (!situation) {
+            this.showNotification('Missing Information', 'Please select a situation', 'error');
+            return;
+        }
+        
+        if (!liquidityThreshold) {
+            this.showNotification('Missing Information', 'Please enter a liquidity threshold', 'error');
             return;
         }
         
         if (!actusUrl) {
-            this.showNotification('Missing Information', 'Please enter ACTUS URL', 'error');
+            this.showNotification('Missing Information', 'ACTUS URL is required', 'error');
+            return;
+        }
+        
+        if (!executionMode) {
+            this.showNotification('Missing Information', 'Please select an execution mode', 'error');
             return;
         }
         
         // Validate threshold is a positive number
-        const thresholdValue = parseFloat(threshold);
+        const thresholdValue = parseFloat(liquidityThreshold);
         if (isNaN(thresholdValue) || thresholdValue < 0) {
-            this.showNotification('Invalid Threshold', 'Please enter a valid positive number for threshold', 'error');
+            this.showNotification('Invalid Threshold', 'Please enter a valid positive number for liquidity threshold', 'error');
             return;
         }
 
+        // Construct configuration file path following the same pattern as other Risk components
+        const relativeConfigPath = `src/data/RISK/StableCoin/CONFIG/${jurisdiction}/${situation}`;
+        
         const parameters = {
-            stablecoinType: stablecoinType,
-            threshold: thresholdValue,
+            command: 'node ./build/tests/with-sign/StablecoinProofOfReservesRiskVerificationTestWithSign.js',
+            jurisdiction: jurisdiction,
+            situation: situation,
+            liquidityThreshold: thresholdValue,
             actusUrl: actusUrl,
+            executionMode: executionMode,
+            configFilePath: relativeConfigPath,
             typeOfNet: 'TESTNET'
         };
 
+        console.log('Executing stablecoin verification with parameters:', parameters);
+        
         const toolName = 'get-StablecoinProofOfReservesRisk-verification-with-sign';
         await this.executeRiskVerification(toolName, parameters);
     }

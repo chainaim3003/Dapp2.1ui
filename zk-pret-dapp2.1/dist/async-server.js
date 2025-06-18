@@ -618,6 +618,83 @@ app.get('/api/v1/risk-advanced-execution-settings', async (_req, res) => {
         });
     }
 });
+// Stablecoin Jurisdictions API - Fixed values as per user requirements (US and EU)
+app.get('/api/v1/stablecoin-jurisdictions', async (_req, res) => {
+    try {
+        // Return fixed jurisdiction values as requested by user
+        const jurisdictions = ['US', 'EU'];
+        res.json({
+            jurisdictions,
+            source: 'fixed-configuration',
+            count: jurisdictions.length
+        });
+    }
+    catch (error) {
+        logger.error('Failed to get stablecoin jurisdictions', {
+            error: error instanceof Error ? error.message : String(error)
+        });
+        res.status(500).json({
+            error: 'Failed to get stablecoin jurisdictions',
+            details: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+// Stablecoin Situations API - Load files from jurisdiction-specific directory
+app.get('/api/v1/stablecoin-situations/:jurisdiction', async (req, res) => {
+    try {
+        const { jurisdiction } = req.params;
+        const basePath = process.env.ZK_PRET_STDIO_PATH;
+        const configPath = process.env.ZK_PRET_DATA_RISK_STABLECOIN_CONFIG;
+        // Validate jurisdiction
+        if (!['US', 'EU'].includes(jurisdiction)) {
+            return res.status(400).json({
+                error: 'Invalid jurisdiction. Must be US or EU',
+                provided: jurisdiction
+            });
+        }
+        if (!configPath || !basePath) {
+            return res.status(400).json({
+                error: 'Stablecoin config path not configured',
+                configPath: !!configPath,
+                basePath: !!basePath
+            });
+        }
+        // Construct path: ${basePath}/${configPath}/${jurisdiction}
+        const fullPath = path.join(basePath, configPath, jurisdiction);
+        logger.info('Reading stablecoin situations', {
+            jurisdiction,
+            configPath,
+            fullPath
+        });
+        // Check if directory exists
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({
+                error: 'Stablecoin config directory not found',
+                path: fullPath,
+                jurisdiction
+            });
+        }
+        const files = fs.readdirSync(fullPath)
+            .filter(f => f.endsWith('.json') || f.endsWith('.xml') || f.endsWith('.config'))
+            .sort();
+        res.json({
+            situations: files,
+            jurisdiction,
+            path: `${configPath}/${jurisdiction}`,
+            count: files.length
+        });
+    }
+    catch (error) {
+        logger.error('Failed to read stablecoin situations', {
+            error: error instanceof Error ? error.message : String(error),
+            jurisdiction: req.params.jurisdiction
+        });
+        res.status(500).json({
+            error: 'Failed to read stablecoin situations',
+            details: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
 // Enhanced status endpoint with job information
 app.get('/api/v1/status', (_req, res) => {
     res.json({

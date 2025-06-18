@@ -413,6 +413,66 @@ app.post('/api/v1/composed-proofs/templates', async (req, res) => {
         res.status(500).json({ error: 'Failed to add template' });
     }
 });
+// Process Files API - Get available BPMN files for file picker
+app.get('/api/v1/process-files/:processType/:fileType', async (req, res) => {
+    try {
+        const { processType, fileType } = req.params;
+        const basePath = process.env.ZK_PRET_STDIO_PATH;
+        // Validate process type and file type
+        if (!['SCF', 'DVP', 'STABLECOIN'].includes(processType)) {
+            return res.status(400).json({ error: 'Invalid process type' });
+        }
+        if (!['expected', 'actual'].includes(fileType.toLowerCase())) {
+            return res.status(400).json({ error: 'Invalid file type. Must be "expected" or "actual"' });
+        }
+        const envVar = `ZK_PRET_DATA_PROCESS_PATH_${processType}_${fileType.toUpperCase()}`;
+        const relativePath = process.env[envVar];
+        if (!relativePath || !basePath) {
+            return res.status(400).json({
+                error: 'Path not configured',
+                envVar,
+                relativePath,
+                basePath: !!basePath
+            });
+        }
+        const fullPath = path.join(basePath, relativePath);
+        logger.info('Reading process files', {
+            processType,
+            fileType,
+            envVar,
+            relativePath,
+            fullPath
+        });
+        // Check if directory exists
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({
+                error: 'Directory not found',
+                path: fullPath
+            });
+        }
+        const files = fs.readdirSync(fullPath)
+            .filter(f => f.endsWith('.bpmn'))
+            .sort(); // Sort alphabetically
+        res.json({
+            files,
+            path: relativePath,
+            processType,
+            fileType,
+            count: files.length
+        });
+    }
+    catch (error) {
+        logger.error('Failed to read process files', {
+            error: error instanceof Error ? error.message : String(error),
+            processType: req.params.processType,
+            fileType: req.params.fileType
+        });
+        res.status(500).json({
+            error: 'Failed to read directory',
+            details: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
 // ACTUS Configuration API - Get ACTUS server URL from environment
 app.get('/api/v1/actus-config', async (_req, res) => {
     try {
@@ -609,6 +669,102 @@ app.get('/api/v1/risk-advanced-execution-settings', async (_req, res) => {
         });
         res.status(500).json({
             error: 'Failed to read Risk Advanced execution settings',
+            details: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+// Stablecoin Jurisdictions API - Get available jurisdictions from CONFIG subdirectories
+app.get('/api/v1/stablecoin-jurisdictions', async (_req, res) => {
+    try {
+        const basePath = process.env.ZK_PRET_STDIO_PATH;
+        const relativePath = process.env.ZK_PRET_DATA_RISK_STABLECOIN_CONFIG;
+        if (!relativePath || !basePath) {
+            return res.status(400).json({
+                error: 'Stablecoin config path not configured',
+                relativePath: !!relativePath,
+                basePath: !!basePath
+            });
+        }
+        const fullPath = path.join(basePath, relativePath);
+        logger.info('Reading stablecoin jurisdictions', {
+            relativePath,
+            fullPath
+        });
+        // Check if directory exists
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({
+                error: 'Stablecoin config directory not found',
+                path: fullPath
+            });
+        }
+        const jurisdictions = fs.readdirSync(fullPath)
+            .filter(item => {
+            const itemPath = path.join(fullPath, item);
+            return fs.statSync(itemPath).isDirectory();
+        })
+            .sort(); // Sort alphabetically
+        res.json({
+            jurisdictions,
+            path: relativePath,
+            configType: 'Stablecoin-Jurisdictions',
+            count: jurisdictions.length
+        });
+    }
+    catch (error) {
+        logger.error('Failed to read stablecoin jurisdictions', {
+            error: error instanceof Error ? error.message : String(error)
+        });
+        res.status(500).json({
+            error: 'Failed to read stablecoin jurisdictions',
+            details: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
+// Stablecoin Situations API - Get available situation files for a jurisdiction
+app.get('/api/v1/stablecoin-situations/:jurisdiction', async (req, res) => {
+    try {
+        const { jurisdiction } = req.params;
+        const basePath = process.env.ZK_PRET_STDIO_PATH;
+        const baseConfigPath = process.env.ZK_PRET_DATA_RISK_STABLECOIN_CONFIG;
+        if (!baseConfigPath || !basePath) {
+            return res.status(400).json({
+                error: 'Stablecoin config path not configured',
+                baseConfigPath: !!baseConfigPath,
+                basePath: !!basePath
+            });
+        }
+        const relativePath = path.join(baseConfigPath, jurisdiction);
+        const fullPath = path.join(basePath, relativePath);
+        logger.info('Reading stablecoin situations', {
+            jurisdiction,
+            relativePath,
+            fullPath
+        });
+        // Check if directory exists
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({
+                error: `Stablecoin jurisdiction directory not found: ${jurisdiction}`,
+                path: fullPath
+            });
+        }
+        const situations = fs.readdirSync(fullPath)
+            .filter(f => f.endsWith('.json'))
+            .sort(); // Sort alphabetically
+        res.json({
+            situations,
+            jurisdiction,
+            path: relativePath,
+            configType: 'Stablecoin-Situations',
+            count: situations.length
+        });
+    }
+    catch (error) {
+        logger.error('Failed to read stablecoin situations', {
+            error: error instanceof Error ? error.message : String(error),
+            jurisdiction: req.params.jurisdiction
+        });
+        res.status(500).json({
+            error: 'Failed to read stablecoin situations',
             details: error instanceof Error ? error.message : String(error)
         });
     }
